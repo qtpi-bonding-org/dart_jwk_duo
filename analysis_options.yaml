@@ -1,0 +1,46 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  strong-mode:
+    implicit-casts: false
+    implicit-dynamic: false
+  errors:
+    # Treat missing required parameters as errors
+    missing_required_param: error
+    # Treat missing return types as errors
+    always_declare_return_types: error
+    # Treat unused imports as errors
+    unused_import: error
+    # Treat unused local variables as errors
+    unused_local_variable: error
+
+linter:
+  rules:
+    # Enforce strict typing
+    always_declare_return_types: true
+    always_specify_types: true
+    avoid_dynamic_calls: true
+    
+    # Code quality
+    prefer_const_constructors: true
+    prefer_const_declarations: true
+    prefer_final_fields: true
+    prefer_final_locals: true
+    
+    # Documentation
+    public_member_api_docs: true
+    
+    # Style
+    sort_constructors_first: true
+    sort_pub_dependencies: true
+    
+    # Error prevention
+    avoid_empty_else: true
+    avoid_slow_async_io: true
+    cancel_subscriptions: true
+    close_sinks: true
+    
+    # Performance
+    avoid_function_literals_in_foreach_calls: true
+    prefer_collection_literals: true
+    prefer_spread_collections: true
