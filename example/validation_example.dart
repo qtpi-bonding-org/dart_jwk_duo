@@ -1,8 +1,8 @@
-import 'package:jwk_duo/jwk_duo.dart';
+import 'package:dart_jwk_duo/dart_jwk_duo.dart';
 
 /// Example demonstrating the optional key pair validation functionality.
 Future<void> main() async {
-  print('JWK Duo - Key Pair Validation Example');
+  print('Dart JWK Duo - Key Pair Validation Example');
   print('=====================================\n');
 
   // Generate a key duo

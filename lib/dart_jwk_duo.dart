@@ -1,7 +1,7 @@
 /// A thin, type-safe wrapper around package:webcrypto for managing
 /// a JWK Set containing exactly 2 RSA key pairs: one for signing (RSA-PSS-256)
 /// and one for encryption (RSA-OAEP-256).
-library jwk_duo;
+library dart_jwk_duo;
 
 // Constants and configuration
 export 'src/constants.dart';

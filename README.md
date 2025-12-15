@@ -1,4 +1,4 @@
-# JWK Duo
+# Dart JWK Duo
 
 A thin, type-safe wrapper around `package:webcrypto` for managing a JWK Set containing exactly 2 RSA key pairs:
 
@@ -15,7 +15,7 @@ A thin, type-safe wrapper around `package:webcrypto` for managing a JWK Set cont
 ## Usage
 
 ```dart
-import 'package:jwk_duo/jwk_duo.dart';
+import 'package:dart_jwk_duo/dart_jwk_duo.dart';
 
 // Generate key pair duo
 final generator = KeyDuoGenerator();

@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'dart:math';
-import 'package:flutter_test/flutter_test.dart';
-import 'package:jwk_duo/src/jwk_thumbprint.dart';
-import 'package:jwk_duo/src/exported_jwk.dart';
-import 'package:jwk_duo/src/constants.dart';
-import 'package:jwk_duo/src/signing_key_pair.dart';
-import 'package:jwk_duo/src/encryption_key_pair.dart';
-import 'package:jwk_duo/src/key_duo_generator.dart';
-import 'package:jwk_duo/src/key_duo_serializer.dart';
-import 'package:jwk_duo/src/interfaces.dart';
+import 'package:test/test.dart';
+import 'package:dart_jwk_duo/src/jwk_thumbprint.dart';
+import 'package:dart_jwk_duo/src/exported_jwk.dart';
+import 'package:dart_jwk_duo/src/constants.dart';
+import 'package:dart_jwk_duo/src/signing_key_pair.dart';
+import 'package:dart_jwk_duo/src/encryption_key_pair.dart';
+import 'package:dart_jwk_duo/src/key_duo_generator.dart';
+import 'package:dart_jwk_duo/src/key_duo_serializer.dart';
+import 'package:dart_jwk_duo/src/interfaces.dart';
 import 'package:webcrypto/webcrypto.dart';
 
 // Property-based test iteration counts
@@ -16,7 +16,7 @@ const int lightweightIterations = 50; // For fast operations (hashing, object cr
 const int expensiveIterations = 5;    // For slow operations (RSA key generation)
 
 void main() {
-  group('JWK Duo', () {
+  group('Dart JWK Duo', () {
     test('placeholder test', () {
       // TODO: Add actual tests as implementation progresses
       expect(true, isTrue);
@@ -24,7 +24,7 @@ void main() {
   });
 
   group('JWK Thumbprint', () {
-    /// **Feature: jwk-duo, Property 12: JWK thumbprint consistency**
+    /// **Feature: dart-jwk-duo, Property 12: JWK thumbprint consistency**
     /// **Validates: Requirements 6.3, 6.4**
     test('property test - JWK thumbprint consistency', () async {
       final random = Random();
@@ -93,7 +93,7 @@ void main() {
   });
 
   group('ExportedJwk DTO', () {
-    /// **Feature: jwk-duo, Property 11: Export returns Type-Safe DTO**
+    /// **Feature: dart-jwk-duo, Property 11: Export returns Type-Safe DTO**
     /// **Validates: Requirements 5.1, 5.2**
     test('property test - Export returns Type-Safe DTO', () async {
       final Random random = Random();
@@ -181,7 +181,7 @@ void main() {
       );
     });
 
-    /// **Feature: jwk-duo, Property 13: Public key export safety**
+    /// **Feature: dart-jwk-duo, Property 13: Public key export safety**
     /// **Validates: Requirements 3.1, 3.4**
     test('property test - Public key export safety', () async {
       final Random random = Random();
@@ -229,7 +229,7 @@ void main() {
   });
 
   group('SigningKeyPair', () {
-    /// **Feature: jwk-duo, Property 4: Signing key export includes correct metadata**
+    /// **Feature: dart-jwk-duo, Property 4: Signing key export includes correct metadata**
     /// **Validates: Requirements 2.3, 3.2**
     test('property test - Signing key export includes correct metadata', () async {
       
@@ -318,7 +318,7 @@ void main() {
       }
     });
 
-    /// **Feature: jwk-duo, Property 15: Signing key pair validation**
+    /// **Feature: dart-jwk-duo, Property 15: Signing key pair validation**
     /// **Validates: Security requirement for key pair integrity**
     test('property test - Signing key pair validation', () async {
       // Run property test with expensive iterations (RSA key generation is expensive)
@@ -356,7 +356,7 @@ void main() {
   });
 
   group('EncryptionKeyPair', () {
-    /// **Feature: jwk-duo, Property 5: Encryption key export includes correct metadata**
+    /// **Feature: dart-jwk-duo, Property 5: Encryption key export includes correct metadata**
     /// **Validates: Requirements 2.4, 3.3**
     test('property test - Encryption key export includes correct metadata', () async {
       
@@ -445,7 +445,7 @@ void main() {
       }
     });
 
-    /// **Feature: jwk-duo, Property 16: Encryption key pair validation**
+    /// **Feature: dart-jwk-duo, Property 16: Encryption key pair validation**
     /// **Validates: Security requirement for key pair integrity**
     test('property test - Encryption key pair validation', () async {
       // Run property test with expensive iterations (RSA key generation is expensive)
@@ -483,7 +483,7 @@ void main() {
   });
 
   group('KeyDuo and KeyDuoGenerator', () {
-    /// **Feature: jwk-duo, Property 1: Key generation produces correct key types**
+    /// **Feature: dart-jwk-duo, Property 1: Key generation produces correct key types**
     /// **Validates: Requirements 1.1, 1.2, 2.1, 2.2**
     test('property test - Key generation produces correct key types', () async {
       
@@ -530,7 +530,7 @@ void main() {
       }
     });
 
-    /// **Feature: jwk-duo, Property 2: Key generation uses correct cryptographic parameters**
+    /// **Feature: dart-jwk-duo, Property 2: Key generation uses correct cryptographic parameters**
     /// **Validates: Requirements 1.3, 1.4**
     test('property test - Key generation uses correct cryptographic parameters', () async {
       
@@ -587,7 +587,7 @@ void main() {
       }
     });
 
-    /// **Feature: jwk-duo, Property 3: Key duo contains both key pairs**
+    /// **Feature: dart-jwk-duo, Property 3: Key duo contains both key pairs**
     /// **Validates: Requirements 1.5**
     test('property test - Key duo contains both key pairs', () async {
       
@@ -652,7 +652,7 @@ void main() {
   });
 
   group('KeyDuoSerializer', () {
-    /// **Feature: jwk-duo, Property 6: JWK Set export structure**
+    /// **Feature: dart-jwk-duo, Property 6: JWK Set export structure**
     /// **Validates: Requirements 3.1**
     test('property test - JWK Set export structure', () async {
       final generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
@@ -704,7 +704,7 @@ void main() {
       }
     });
 
-    /// **Feature: jwk-duo, Property 7: Private key export completeness**
+    /// **Feature: dart-jwk-duo, Property 7: Private key export completeness**
     /// **Validates: Requirements 3.4, 3.5**
     test('property test - Private key export completeness', () async {
       final generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
@@ -751,7 +751,7 @@ void main() {
       }
     });
 
-    /// **Feature: jwk-duo, Property 8: JWK Set import validation**
+    /// **Feature: dart-jwk-duo, Property 8: JWK Set import validation**
     /// **Validates: Requirements 4.1, 4.2, 4.3**
     test('property test - JWK Set import validation', () async {
       final generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
@@ -786,7 +786,7 @@ void main() {
       }
     });
 
-    /// **Feature: jwk-duo, Property 9: Import key validation**
+    /// **Feature: dart-jwk-duo, Property 9: Import key validation**
     /// **Validates: Requirements 4.4**
     test('property test - Import key validation', () async {
       final serializer = KeyDuoSerializer();
@@ -819,7 +819,7 @@ void main() {
       );
     });
 
-    /// **Feature: jwk-duo, Property 10: Import-export round trip**
+    /// **Feature: dart-jwk-duo, Property 10: Import-export round trip**
     /// **Validates: Requirements 4.5**
     test('property test - Import-export round trip', () async {
       final generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
@@ -870,7 +870,7 @@ void main() {
   });
 
   group('Configuration and Validation', () {
-    /// **Feature: jwk-duo, Property 14: Thumbprint validation**
+    /// **Feature: dart-jwk-duo, Property 14: Thumbprint validation**
     /// **Validates: Requirements 5.4, 5.5**
     test('property test - Thumbprint validation', () async {
       // Run property test with expensive iterations (RSA key generation is expensive)

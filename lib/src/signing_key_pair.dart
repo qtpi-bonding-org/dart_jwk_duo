@@ -97,7 +97,7 @@ class SigningKeyPair implements IKeyPair<RsaPssPrivateKey, RsaPssPublicKey> {
     
     try {
       // Test message for validation
-      final testMessage = Uint8List.fromList('jwk-duo-validation-test'.codeUnits);
+      final testMessage = Uint8List.fromList('dart-jwk-duo-validation-test'.codeUnits);
       
       // Sign with private key using standard salt length (32 bytes for SHA-256)
       final signature = await _privateKey!.signBytes(testMessage, 32);
