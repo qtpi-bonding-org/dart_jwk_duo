@@ -55,5 +55,4 @@ plan.md
 webcrypto.dart/
 
 # Keep only essential Kiro steering files, exclude specs and settings
-.kiro/specs/
-.kiro/settings/
+.kiro/*
