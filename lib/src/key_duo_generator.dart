@@ -2,7 +2,6 @@
 library;
 
 import 'package:webcrypto/webcrypto.dart';
-import 'interfaces.dart';
 import 'key_duo.dart';
 import 'signing_key_pair.dart';
 import 'encryption_key_pair.dart';
@@ -15,7 +14,7 @@ abstract class IKeyDuoGenerator {
   /// Generates a new key duo containing both signing and encryption key pairs.
   /// 
   /// Returns a [KeyDuo] with ECDSA P-256 signing keys and RSA-OAEP-256 encryption keys.
-  Future<IKeyDuo> generateKeyDuo();
+  Future<KeyDuo> generateKeyDuo();
 }
 
 /// Generator for creating key duos with proper parameters.
@@ -33,7 +32,7 @@ class KeyDuoGenerator implements IKeyDuoGenerator {
   }) : _modulusLength = modulusLength;
 
   @override
-  Future<IKeyDuo> generateKeyDuo() async {
+  Future<KeyDuo> generateKeyDuo() async {
     // Generate ECDSA P-256 key pair for signing
     final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) signingKeyPair = 
         await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
