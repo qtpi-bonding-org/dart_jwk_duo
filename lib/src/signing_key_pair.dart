@@ -1,60 +1,82 @@
-/// Type-safe wrapper for RSA-PSS signing key pairs.
+/// Type-safe wrapper for ECDSA P-256 signing key pairs.
 library;
 
+import 'dart:convert';
 import 'dart:typed_data';
 import 'package:webcrypto/webcrypto.dart';
 import 'interfaces.dart';
 import 'exported_jwk.dart';
 import 'constants.dart';
-import 'jwk_thumbprint.dart';
 
-/// Type-safe wrapper for RSA-PSS signing key pairs.
+/// Type-safe wrapper for ECDSA P-256 signing key pairs.
 /// 
 /// Provides compile-time safety by restricting operations to signing keys only.
-/// Hardcodes algorithm as "PS256" and use as "sig" to prevent misuse.
-class SigningKeyPair implements IKeyPair<RsaPssPrivateKey, RsaPssPublicKey> {
-  final RsaPssPrivateKey? _privateKey;
-  final RsaPssPublicKey _publicKey;
+/// Uses ES256 algorithm (ECDSA with P-256 curve and SHA-256).
+class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
+  final EcdsaPrivateKey? _privateKey;
+  final EcdsaPublicKey _publicKey;
   
   /// Creates a new SigningKeyPair wrapper with both private and public keys.
-  /// 
-  /// **IMPORTANT**: The caller must ensure that [privateKey] and [publicKey] 
-  /// are mathematically paired (i.e., they belong to the same RSA key pair).
-  /// This constructor does not validate the key pair relationship due to 
-  /// WebCrypto API limitations. Mismatched keys will result in cryptographic
-  /// failures during signing/verification operations.
-  /// 
-  /// Use [KeyDuoGenerator] to safely generate matched key pairs.
-  /// 
-  /// [privateKey] - The RSA-PSS private key
-  /// [publicKey] - The RSA-PSS public key  
   SigningKeyPair({
-    required RsaPssPrivateKey privateKey,
-    required RsaPssPublicKey publicKey,
+    required EcdsaPrivateKey privateKey,
+    required EcdsaPublicKey publicKey,
   }) : _privateKey = privateKey,
        _publicKey = publicKey;
 
   /// Creates a new public-only SigningKeyPair wrapper.
-  /// 
-  /// [publicKey] - The RSA-PSS public key  
   SigningKeyPair.publicOnly({
-    required RsaPssPublicKey publicKey,
+    required EcdsaPublicKey publicKey,
   }) : _privateKey = null,
        _publicKey = publicKey;
 
   @override
-  RsaPssPrivateKey? get privateKey => _privateKey;
+  EcdsaPrivateKey? get privateKey => _privateKey;
 
   @override
-  RsaPssPublicKey get publicKey => _publicKey;
+  EcdsaPublicKey get publicKey => _publicKey;
 
   @override
   bool get hasPrivateKey => _privateKey != null;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Signing Operations (concrete class methods, not in interface)
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Sign bytes with the private key.
+  Future<Uint8List> signBytes(Uint8List data) async {
+    if (_privateKey == null) {
+      throw StateError('Cannot sign: public-only key pair');
+    }
+    return await _privateKey!.signBytes(data, Hash.sha256);
+  }
+
+  /// Verify a signature against the original data.
+  Future<bool> verifyBytes(Uint8List signature, Uint8List data) async {
+    return await _publicKey.verifyBytes(signature, data, Hash.sha256);
+  }
+
+  /// Export public key as raw bytes (65 bytes: 04 prefix + x + y).
+  Future<Uint8List> exportPublicKeyRaw() async {
+    return await _publicKey.exportRawKey();
+  }
+
+  /// Export public key as hex string (128 chars, no 04 prefix) for auth token.
+  Future<String> exportPublicKeyHex() async {
+    final Uint8List raw = await exportPublicKeyRaw();
+    // Raw key is 65 bytes (04 prefix + 32 bytes x + 32 bytes y)
+    // Skip the 04 prefix to get 64 bytes = 128 hex chars
+    final Uint8List bytes = raw.length == 65 ? raw.sublist(1) : raw;
+    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // IKeyPair Implementation
+  // ═══════════════════════════════════════════════════════════════════════════
+
   @override
   Future<ExportedJwk> exportPrivateKey() async {
     if (_privateKey == null) {
-      throw StateError('Cannot export private key: This is a public-only key pair');
+      throw StateError('Cannot export private key: public-only key pair');
     }
     
     final Map<String, dynamic> jwkMap = await _privateKey!.exportJsonWebKey();
@@ -63,7 +85,7 @@ class SigningKeyPair implements IKeyPair<RsaPssPrivateKey, RsaPssPublicKey> {
     return ExportedJwk(
       keyData: jwkMap,
       keyId: keyId,
-      alg: JwkAlgorithm.ps256,
+      alg: JwkAlgorithm.es256,
       use: JwkUse.signature,
     );
   }
@@ -76,36 +98,31 @@ class SigningKeyPair implements IKeyPair<RsaPssPrivateKey, RsaPssPublicKey> {
     return ExportedJwk(
       keyData: jwkMap,
       keyId: keyId,
-      alg: JwkAlgorithm.ps256,
+      alg: JwkAlgorithm.es256,
       use: JwkUse.signature,
     );
   }
 
   @override
   Future<String> calculateKeyId() async {
-    // Simply return the standard RFC 7638 thumbprint.
-    // The 'use' field (sig/enc) already distinguishes the key type.
-    final Map<String, dynamic> publicJwkMap = await _publicKey.exportJsonWebKey();
-    return calculateJwkThumbprint(publicJwkMap);
+    // RFC 7638 thumbprint for EC keys: {"crv":"...","kty":"EC","x":"...","y":"..."}
+    final Map<String, dynamic> jwk = await _publicKey.exportJsonWebKey();
+    final String canonical = '{"crv":"${jwk['crv']}","kty":"${jwk['kty']}","x":"${jwk['x']}","y":"${jwk['y']}"}';
+    final Uint8List hash = await Hash.sha256.digestBytes(utf8.encode(canonical));
+    return base64Url.encode(hash).replaceAll('=', '');
   }
 
   @override
   Future<bool> validateKeyPair() async {
     if (_privateKey == null) {
-      throw StateError('Cannot validate key pair: This is a public-only key pair');
+      throw StateError('Cannot validate: public-only key pair');
     }
     
     try {
-      // Test message for validation
-      final testMessage = Uint8List.fromList('dart-jwk-duo-validation-test'.codeUnits);
-      
-      // Sign with private key using standard salt length (32 bytes for SHA-256)
-      final signature = await _privateKey!.signBytes(testMessage, 32);
-      final isValid = await _publicKey.verifyBytes(signature, testMessage, 32);
-      
-      return isValid;
+      final Uint8List testMessage = Uint8List.fromList('dart-jwk-duo-validation'.codeUnits);
+      final Uint8List signature = await signBytes(testMessage);
+      return await verifyBytes(signature, testMessage);
     } catch (e) {
-      // Any crypto exception indicates mismatched keys
       return false;
     }
   }

@@ -25,11 +25,6 @@ class ExportedJwk {
   /// 
   /// Validates that the algorithm and use are consistent with the key type.
   /// Throws [ArgumentError] if validation fails.
-  /// 
-  /// [keyData] - The JWK data as a Map
-  /// [keyId] - RFC 7638 JWK thumbprint (populates 'kid' field)
-  /// [alg] - Algorithm identifier
-  /// [use] - Public key use ('sig' or 'enc')
   ExportedJwk({
     required Map<String, dynamic> keyData,
     required this.keyId,
@@ -42,37 +37,44 @@ class ExportedJwk {
   /// Converts the ExportedJwk to a JSON Map.
   /// 
   /// Merges the raw key data with the metadata (kid, alg, use).
-  /// The keyId (RFC 7638 thumbprint) becomes the 'kid' field in the JSON output.
-  /// Returns a Map suitable for JSON serialization.
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> result = Map<String, dynamic>.from(_keyData);
-    
-    // Add metadata fields
-    result['kid'] = keyId;  // RFC 7638 JWK thumbprint
+    result['kid'] = keyId;
     result['alg'] = alg;
     result['use'] = use;
-    
     return result;
   }
   
   /// Creates a public-only version of this ExportedJwk.
   /// 
-  /// STRICTLY copies only the standard public RSA components (kty, n, e).
-  /// Any other fields in the source map are dropped to prevent 
-  /// accidental leakage of private data or non-standard metadata.
-  /// 
-  /// Returns a new ExportedJwk containing only public key components.
+  /// For EC keys: copies kty, crv, x, y
+  /// For RSA keys: copies kty, n, e
   ExportedJwk toPublicOnly() {
-    // Allowlist approach: Only take what we explicitly know is public.
-    final Map<String, dynamic> publicKeyData = {
-      'kty': _keyData['kty'],  // Key type (RSA)
-      'n': _keyData['n'],      // Modulus
-      'e': _keyData['e'],      // Public exponent
-    };
+    final String? kty = _keyData['kty'] as String?;
     
-    // Check for nulls just in case the source was malformed
+    final Map<String, dynamic> publicKeyData;
+    
+    if (kty == JwkKeyType.ec) {
+      // EC key - copy curve and coordinates
+      publicKeyData = {
+        'kty': _keyData['kty'],
+        'crv': _keyData['crv'],
+        'x': _keyData['x'],
+        'y': _keyData['y'],
+      };
+    } else if (kty == JwkKeyType.rsa) {
+      // RSA key - copy modulus and exponent
+      publicKeyData = {
+        'kty': _keyData['kty'],
+        'n': _keyData['n'],
+        'e': _keyData['e'],
+      };
+    } else {
+      throw const FormatException('Unknown key type');
+    }
+    
     if (publicKeyData.containsValue(null)) {
-      throw FormatException('Cannot create public key: Source JWK missing n, e, or kty');
+      throw const FormatException('Cannot create public key: missing required components');
     }
     
     return ExportedJwk(
@@ -83,30 +85,36 @@ class ExportedJwk {
     );
   }
   
-  /// Validates that the algorithm and use are consistent.
-  /// 
-  /// Throws [ArgumentError] if validation fails.
   void _validate() {
-    // Validate algorithm and use combinations
-    if (alg == JwkAlgorithm.ps256 && use != JwkUse.signature) {
-      throw ArgumentError('PS256 algorithm must be used with "sig" use');
+    final String? kty = _keyData['kty'] as String?;
+    
+    // Validate ES256 (ECDSA P-256) for signing
+    if (alg == JwkAlgorithm.es256) {
+      if (use != JwkUse.signature) {
+        throw ArgumentError('ES256 algorithm must be used with "sig" use');
+      }
+      if (kty != JwkKeyType.ec) {
+        throw ArgumentError('ES256 algorithm requires EC key type');
+      }
     }
     
-    if (alg == JwkAlgorithm.rsaOaep256 && use != JwkUse.encryption) {
-      throw ArgumentError('RSA-OAEP-256 algorithm must be used with "enc" use');
+    // Validate RSA-OAEP-256 for encryption
+    if (alg == JwkAlgorithm.rsaOaep256) {
+      if (use != JwkUse.encryption) {
+        throw ArgumentError('RSA-OAEP-256 algorithm must be used with "enc" use');
+      }
+      if (kty != JwkKeyType.rsa) {
+        throw ArgumentError('RSA-OAEP-256 algorithm requires RSA key type');
+      }
     }
     
-    if (use == JwkUse.signature && alg != JwkAlgorithm.ps256) {
-      throw ArgumentError('Signature use must be used with PS256 algorithm');
+    // Validate use matches algorithm
+    if (use == JwkUse.signature && alg != JwkAlgorithm.es256) {
+      throw ArgumentError('Signature use must be used with ES256 algorithm');
     }
     
     if (use == JwkUse.encryption && alg != JwkAlgorithm.rsaOaep256) {
       throw ArgumentError('Encryption use must be used with RSA-OAEP-256 algorithm');
-    }
-    
-    // Validate key type
-    if (_keyData['kty'] != JwkKeyType.rsa) {
-      throw ArgumentError('Only RSA keys are supported');
     }
   }
 }

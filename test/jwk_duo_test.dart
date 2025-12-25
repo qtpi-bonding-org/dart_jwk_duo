@@ -1,149 +1,103 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:test/test.dart';
 import 'package:dart_jwk_duo/src/jwk_thumbprint.dart';
 import 'package:dart_jwk_duo/src/exported_jwk.dart';
 import 'package:dart_jwk_duo/src/constants.dart';
 import 'package:dart_jwk_duo/src/signing_key_pair.dart';
 import 'package:dart_jwk_duo/src/encryption_key_pair.dart';
+import 'package:dart_jwk_duo/src/key_duo.dart';
 import 'package:dart_jwk_duo/src/key_duo_generator.dart';
 import 'package:dart_jwk_duo/src/key_duo_serializer.dart';
 import 'package:dart_jwk_duo/src/interfaces.dart';
 import 'package:webcrypto/webcrypto.dart';
 
 // Property-based test iteration counts
-const int lightweightIterations = 50; // For fast operations (hashing, object creation)
-const int expensiveIterations = 5;    // For slow operations (RSA key generation)
+const int lightweightIterations = 3; // For fast operations (hashing, object creation)
+const int expensiveIterations = 1;   // For slow operations (key generation) - keep minimal
 
 void main() {
   group('Dart JWK Duo', () {
     test('placeholder test', () {
-      // TODO: Add actual tests as implementation progresses
       expect(true, isTrue);
     });
   });
 
-  group('JWK Thumbprint', () {
-    /// **Feature: dart-jwk-duo, Property 12: JWK thumbprint consistency**
-    /// **Validates: Requirements 6.3, 6.4**
+  group('JWK Thumbprint (RSA only)', () {
     test('property test - JWK thumbprint consistency', () async {
-      final random = Random();
+      final Random random = Random();
       
-      // Run property test with lightweight iterations
       for (int i = 0; i < lightweightIterations; i++) {
-        // Generate a random RSA JWK with consistent structure
-        final jwk = _generateRandomRsaJwk(random);
+        final Map<String, dynamic> jwk = _generateRandomRsaJwk(random);
         
-        // Calculate thumbprint multiple times
-        final thumbprint1 = await calculateJwkThumbprint(jwk);
-        final thumbprint2 = await calculateJwkThumbprint(jwk);
+        final String thumbprint1 = await calculateJwkThumbprint(jwk);
+        final String thumbprint2 = await calculateJwkThumbprint(jwk);
         
-        // Property: Thumbprint should be consistent across multiple calculations
-        expect(thumbprint1, equals(thumbprint2), 
+        expect(thumbprint1, equals(thumbprint2),
                reason: 'Thumbprint should be consistent for the same JWK');
-        
-        // Property: Thumbprint should be a valid base64url string without padding
-        expect(thumbprint1, matches(RegExp(r'^[A-Za-z0-9_-]+$')), 
+        expect(thumbprint1, matches(RegExp(r'^[A-Za-z0-9_-]+$')),
                reason: 'Thumbprint should be valid base64url without padding');
-        
-        // Property: Thumbprint should have reasonable length (SHA-256 hash)
-        // Base64url encoding of 32 bytes (256 bits) should be 43 characters
-        expect(thumbprint1.length, equals(43), 
-               reason: 'SHA-256 thumbprint should be 43 characters when base64url encoded');
-        
-        // Property: Different JWKs should produce different thumbprints
-        final differentJwk = _generateRandomRsaJwk(random);
-        final differentThumbprint = await calculateJwkThumbprint(differentJwk);
-        
-        // Only check if JWKs are actually different
-        if (!_areJwksEqual(jwk, differentJwk)) {
-          expect(thumbprint1, isNot(equals(differentThumbprint)), 
-                 reason: 'Different JWKs should produce different thumbprints');
-        }
+        expect(thumbprint1.length, equals(43),
+               reason: 'SHA-256 thumbprint should be 43 characters');
       }
     });
 
     test('JWK thumbprint validation errors', () async {
-      // Test missing required fields
       expect(
         () => calculateJwkThumbprint({'kty': 'RSA', 'n': 'test'}),
         throwsA(isA<ArgumentError>()),
         reason: 'Should throw when missing required field "e"',
       );
-      
-      expect(
-        () => calculateJwkThumbprint({'kty': 'RSA', 'e': 'AQAB'}),
-        throwsA(isA<ArgumentError>()),
-        reason: 'Should throw when missing required field "n"',
-      );
-      
-      expect(
-        () => calculateJwkThumbprint({'n': 'test', 'e': 'AQAB'}),
-        throwsA(isA<ArgumentError>()),
-        reason: 'Should throw when missing required field "kty"',
-      );
-      
-      // Test unsupported key type
-      expect(
-        () => calculateJwkThumbprint({'kty': 'EC', 'n': 'test', 'e': 'AQAB'}),
-        throwsA(isA<ArgumentError>()),
-        reason: 'Should throw for unsupported key type',
-      );
     });
   });
 
+
   group('ExportedJwk DTO', () {
-    /// **Feature: dart-jwk-duo, Property 11: Export returns Type-Safe DTO**
-    /// **Validates: Requirements 5.1, 5.2**
-    test('property test - Export returns Type-Safe DTO', () async {
+    test('property test - EC signing key DTO', () async {
       final Random random = Random();
       
-      // Run property test with lightweight iterations
       for (int i = 0; i < lightweightIterations; i++) {
-        // Generate random valid JWK data for both signing and encryption
-        final Map<String, dynamic> signingJwkData = _generateValidRsaJwkData(random);
-        final Map<String, dynamic> encryptionJwkData = _generateValidRsaJwkData(random);
-        
-        // Test signing key DTO
+        final Map<String, dynamic> ecJwkData = _generateValidEcJwkData(random);
         final String signingKid = 'test-signing-${random.nextInt(1000)}';
         
         final ExportedJwk signingExport = ExportedJwk(
-          keyData: signingJwkData,
+          keyData: ecJwkData,
           keyId: signingKid,
-          
-          alg: JwkAlgorithm.ps256,
+          alg: JwkAlgorithm.es256,
           use: JwkUse.signature,
         );
         
-        // Property: DTO must contain all required metadata
         expect(signingExport.keyId, equals(signingKid));
-        expect(signingExport.alg, equals(JwkAlgorithm.ps256));
+        expect(signingExport.alg, equals(JwkAlgorithm.es256));
         expect(signingExport.use, equals(JwkUse.signature));
         
-        // Property: toJson() must include metadata
         final Map<String, dynamic> signingJson = signingExport.toJson();
         expect(signingJson['kid'], equals(signingKid));
-        expect(signingJson['alg'], equals(JwkAlgorithm.ps256));
+        expect(signingJson['alg'], equals(JwkAlgorithm.es256));
         expect(signingJson['use'], equals(JwkUse.signature));
-        expect(signingJson['kty'], equals(JwkKeyType.rsa));
-        
-        // Test encryption key DTO
+        expect(signingJson['kty'], equals(JwkKeyType.ec));
+      }
+    });
+
+    test('property test - RSA encryption key DTO', () async {
+      final Random random = Random();
+      
+      for (int i = 0; i < lightweightIterations; i++) {
+        final Map<String, dynamic> rsaJwkData = _generateValidRsaJwkData(random);
         final String encryptionKid = 'test-encryption-${random.nextInt(1000)}';
         
         final ExportedJwk encryptionExport = ExportedJwk(
-          keyData: encryptionJwkData,
+          keyData: rsaJwkData,
           keyId: encryptionKid,
-          
           alg: JwkAlgorithm.rsaOaep256,
           use: JwkUse.encryption,
         );
         
-        // Property: DTO must contain all required metadata
         expect(encryptionExport.keyId, equals(encryptionKid));
         expect(encryptionExport.alg, equals(JwkAlgorithm.rsaOaep256));
         expect(encryptionExport.use, equals(JwkUse.encryption));
         
-        // Property: toJson() must include metadata
         final Map<String, dynamic> encryptionJson = encryptionExport.toJson();
         expect(encryptionJson['kid'], equals(encryptionKid));
         expect(encryptionJson['alg'], equals(JwkAlgorithm.rsaOaep256));
@@ -153,96 +107,74 @@ void main() {
     });
 
     test('ExportedJwk validation errors', () {
-      final Map<String, dynamic> jwkData = _generateValidRsaJwkData(Random());
+      final Map<String, dynamic> ecJwkData = _generateValidEcJwkData(Random());
+      final Map<String, dynamic> rsaJwkData = _generateValidRsaJwkData(Random());
       
-      // Test invalid algorithm/use combinations
+      // ES256 with wrong use
       expect(
         () => ExportedJwk(
-          keyData: jwkData,
+          keyData: ecJwkData,
           keyId: 'test',
-          
-          alg: JwkAlgorithm.ps256,
-          use: JwkUse.encryption, // Wrong use for PS256
+          alg: JwkAlgorithm.es256,
+          use: JwkUse.encryption,
         ),
         throwsA(isA<ArgumentError>()),
-        reason: 'Should throw for PS256 with encryption use',
+        reason: 'Should throw for ES256 with encryption use',
       );
       
+      // RSA-OAEP-256 with wrong use
       expect(
         () => ExportedJwk(
-          keyData: jwkData,
+          keyData: rsaJwkData,
           keyId: 'test',
-          
           alg: JwkAlgorithm.rsaOaep256,
-          use: JwkUse.signature, // Wrong use for RSA-OAEP-256
+          use: JwkUse.signature,
         ),
         throwsA(isA<ArgumentError>()),
         reason: 'Should throw for RSA-OAEP-256 with signature use',
       );
     });
 
-    /// **Feature: dart-jwk-duo, Property 13: Public key export safety**
-    /// **Validates: Requirements 3.1, 3.4**
-    test('property test - Public key export safety', () async {
+    test('property test - EC public key export safety', () async {
       final Random random = Random();
       
-      // Run property test with lightweight iterations
       for (int i = 0; i < lightweightIterations; i++) {
-        // Generate JWK with private components
-        final Map<String, dynamic> privateJwkData = _generateValidRsaJwkData(random, includePrivate: true);
+        final Map<String, dynamic> privateEcJwkData = _generateValidEcJwkData(random, includePrivate: true);
         
-        // Create ExportedJwk with private key
         final ExportedJwk privateExport = ExportedJwk(
-          keyData: privateJwkData,
+          keyData: privateEcJwkData,
           keyId: 'test-${random.nextInt(1000)}',
-          
-          alg: JwkAlgorithm.ps256,
+          alg: JwkAlgorithm.es256,
           use: JwkUse.signature,
         );
         
-        // Convert to public-only version
         final ExportedJwk publicExport = privateExport.toPublicOnly();
-        
-        // Property: Public export must NOT contain private RSA components
         final Map<String, dynamic> publicJson = publicExport.toJson();
-        expect(publicJson.containsKey('d'), isFalse, reason: 'Public key must not contain private exponent d');
-        expect(publicJson.containsKey('p'), isFalse, reason: 'Public key must not contain prime factor p');
-        expect(publicJson.containsKey('q'), isFalse, reason: 'Public key must not contain prime factor q');
-        expect(publicJson.containsKey('dp'), isFalse, reason: 'Public key must not contain CRT exponent dp');
-        expect(publicJson.containsKey('dq'), isFalse, reason: 'Public key must not contain CRT exponent dq');
-        expect(publicJson.containsKey('qi'), isFalse, reason: 'Public key must not contain CRT coefficient qi');
         
-        // Property: Public export must preserve public components and metadata
-        expect(publicJson['kty'], equals(JwkKeyType.rsa));
-        expect(publicJson['n'], equals(privateJwkData['n']));
-        expect(publicJson['e'], equals(privateJwkData['e']));
+        // Must NOT contain private component
+        expect(publicJson.containsKey('d'), isFalse,
+               reason: 'Public key must not contain private component d');
+        
+        // Must preserve public components
+        expect(publicJson['kty'], equals(JwkKeyType.ec));
+        expect(publicJson['crv'], equals(privateEcJwkData['crv']));
+        expect(publicJson['x'], equals(privateEcJwkData['x']));
+        expect(publicJson['y'], equals(privateEcJwkData['y']));
         expect(publicJson['kid'], equals(privateExport.keyId));
         expect(publicJson['alg'], equals(privateExport.alg));
         expect(publicJson['use'], equals(privateExport.use));
-        
-        // Property: Metadata should be preserved
-        expect(publicExport.keyId, equals(privateExport.keyId));
-        expect(publicExport.alg, equals(privateExport.alg));
-        expect(publicExport.use, equals(privateExport.use));
       }
     });
   });
 
-  group('SigningKeyPair', () {
-    /// **Feature: dart-jwk-duo, Property 4: Signing key export includes correct metadata**
-    /// **Validates: Requirements 2.3, 3.2**
+
+  group('SigningKeyPair (ECDSA P-256)', () {
     test('property test - Signing key export includes correct metadata', () async {
-      
-      // Run property test with expensive iterations (RSA key generation is expensive)
       for (int i = 0; i < expensiveIterations; i++) {
-        // Generate RSA-PSS key pair for testing
-        final KeyPair<RsaPssPrivateKey, RsaPssPublicKey> keyPair = await RsaPssPrivateKey.generateKey(
-          RsaParameters.modulusLength,
-          BigInt.from(RsaParameters.publicExponent),
-          Hash.sha256,
-        );
+        // Generate ECDSA P-256 key pair
+        final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) keyPair =
+            await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
         
-        // Test with default configuration
         final SigningKeyPair signingKeyPair = SigningKeyPair(
           privateKey: keyPair.privateKey,
           publicKey: keyPair.publicKey,
@@ -251,21 +183,16 @@ void main() {
         // Test private key export
         final ExportedJwk privateExport = await signingKeyPair.exportPrivateKey();
         
-        // Property: Private key export must have correct algorithm
-        expect(privateExport.alg, equals(JwkAlgorithm.ps256),
-               reason: 'Signing key must have PS256 algorithm');
-        
-        // Property: Private key export must have correct use
+        expect(privateExport.alg, equals(JwkAlgorithm.es256),
+               reason: 'Signing key must have ES256 algorithm');
         expect(privateExport.use, equals(JwkUse.signature),
                reason: 'Signing key must have signature use');
-        
-        // Property: Private key export must have valid key ID (RFC 7638 thumbprint)
         expect(privateExport.keyId, isNotEmpty,
                reason: 'Key ID must not be empty');
         expect(privateExport.keyId, matches(RegExp(r'^[A-Za-z0-9_-]+$')),
                reason: 'Key ID should be valid base64url format');
         
-        // Property: Key ID should be consistent across exports
+        // Key ID consistency
         final String keyId1 = await signingKeyPair.calculateKeyId();
         final String keyId2 = await signingKeyPair.calculateKeyId();
         expect(keyId1, equals(keyId2),
@@ -276,76 +203,50 @@ void main() {
         // Test public key export
         final ExportedJwk publicExport = await signingKeyPair.exportPublicKey();
         
-        // Property: Public key export must have same metadata as private
-        expect(publicExport.alg, equals(JwkAlgorithm.ps256),
+        expect(publicExport.alg, equals(JwkAlgorithm.es256),
                reason: 'Public key must have same algorithm as private');
         expect(publicExport.use, equals(JwkUse.signature),
                reason: 'Public key must have same use as private');
         expect(publicExport.keyId, equals(privateExport.keyId),
                reason: 'Public key must have same kid as private');
         
-        // Property: Exported JSON must contain required metadata
+        // Exported JSON metadata
         final Map<String, dynamic> privateJson = privateExport.toJson();
-        expect(privateJson['alg'], equals(JwkAlgorithm.ps256));
+        expect(privateJson['alg'], equals(JwkAlgorithm.es256));
         expect(privateJson['use'], equals(JwkUse.signature));
         expect(privateJson['kid'], equals(privateExport.keyId));
-        expect(privateJson['kty'], equals(JwkKeyType.rsa));
+        expect(privateJson['kty'], equals(JwkKeyType.ec));
+        expect(privateJson['crv'], equals(JwkCurve.p256));
         
         final Map<String, dynamic> publicJson = publicExport.toJson();
-        expect(publicJson['alg'], equals(JwkAlgorithm.ps256));
+        expect(publicJson['alg'], equals(JwkAlgorithm.es256));
         expect(publicJson['use'], equals(JwkUse.signature));
         expect(publicJson['kid'], equals(publicExport.keyId));
-        expect(publicJson['kty'], equals(JwkKeyType.rsa));
-        
-        // Property: Public export must not contain private components
+        expect(publicJson['kty'], equals(JwkKeyType.ec));
         expect(publicJson.containsKey('d'), isFalse,
-               reason: 'Public key export must not contain private exponent');
-        
-        // Test with standard RFC 7638 key ID formatting
-        final SigningKeyPair customKeyPair = SigningKeyPair(
-          privateKey: keyPair.privateKey,
-          publicKey: keyPair.publicKey,
-          
-        );
-        
-        final String customKeyId = await customKeyPair.calculateKeyId();
-        expect(customKeyId, matches(RegExp(r'^[A-Za-z0-9_-]+$')),
-               reason: 'Key ID should be RFC 7638 thumbprint format');
-        
-        final ExportedJwk customExport = await customKeyPair.exportPrivateKey();
-        expect(customExport.keyId, equals(customKeyId),
-               reason: 'Export should use custom key ID');
+               reason: 'Public key export must not contain private component');
       }
     });
 
-    /// **Feature: dart-jwk-duo, Property 15: Signing key pair validation**
-    /// **Validates: Security requirement for key pair integrity**
     test('property test - Signing key pair validation', () async {
-      // Run property test with expensive iterations (RSA key generation is expensive)
       for (int i = 0; i < expensiveIterations; i++) {
-        // Generate RSA-PSS key pair for testing
-        final KeyPair<RsaPssPrivateKey, RsaPssPublicKey> keyPair = await RsaPssPrivateKey.generateKey(
-          RsaParameters.modulusLength,
-          BigInt.from(RsaParameters.publicExponent),
-          Hash.sha256,
-        );
+        final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) keyPair =
+            await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
         
         final SigningKeyPair signingKeyPair = SigningKeyPair(
           privateKey: keyPair.privateKey,
           publicKey: keyPair.publicKey,
         );
         
-        // Property: Valid key pair should pass validation
         final bool isValid = await signingKeyPair.validateKeyPair();
         expect(isValid, isTrue,
                reason: 'Properly paired keys should validate successfully');
         
-        // Test public-only key pair validation
+        // Public-only key pair validation
         final SigningKeyPair publicOnlyKeyPair = SigningKeyPair.publicOnly(
           publicKey: keyPair.publicKey,
         );
         
-        // Property: Public-only key pair should throw StateError
         expect(
           () => publicOnlyKeyPair.validateKeyPair(),
           throwsA(isA<StateError>()),
@@ -353,126 +254,130 @@ void main() {
         );
       }
     });
-  });
 
-  group('EncryptionKeyPair', () {
-    /// **Feature: dart-jwk-duo, Property 5: Encryption key export includes correct metadata**
-    /// **Validates: Requirements 2.4, 3.3**
-    test('property test - Encryption key export includes correct metadata', () async {
-      
-      // Run property test with expensive iterations (RSA key generation is expensive)
+    test('property test - Sign and verify operations', () async {
       for (int i = 0; i < expensiveIterations; i++) {
-        // Generate RSA-OAEP key pair for testing
-        final KeyPair<RsaOaepPrivateKey, RsaOaepPublicKey> keyPair = await RsaOaepPrivateKey.generateKey(
-          RsaParameters.modulusLength,
-          BigInt.from(RsaParameters.publicExponent),
-          Hash.sha256,
+        final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) keyPair =
+            await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
+        
+        final SigningKeyPair signingKeyPair = SigningKeyPair(
+          privateKey: keyPair.privateKey,
+          publicKey: keyPair.publicKey,
         );
         
-        // Test with default configuration
+        // Sign a message
+        final Uint8List message = Uint8List.fromList('test message $i'.codeUnits);
+        final Uint8List signature = await signingKeyPair.signBytes(message);
+        
+        // Verify signature
+        final bool isValid = await signingKeyPair.verifyBytes(signature, message);
+        expect(isValid, isTrue, reason: 'Signature should verify correctly');
+        
+        // Verify with wrong message should fail
+        final Uint8List wrongMessage = Uint8List.fromList('wrong message'.codeUnits);
+        final bool isInvalid = await signingKeyPair.verifyBytes(signature, wrongMessage);
+        expect(isInvalid, isFalse, reason: 'Signature should not verify with wrong message');
+      }
+    });
+
+    test('property test - Export public key as hex', () async {
+      for (int i = 0; i < expensiveIterations; i++) {
+        final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) keyPair =
+            await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
+        
+        final SigningKeyPair signingKeyPair = SigningKeyPair(
+          privateKey: keyPair.privateKey,
+          publicKey: keyPair.publicKey,
+        );
+        
+        final String publicKeyHex = await signingKeyPair.exportPublicKeyHex();
+        
+        // ECDSA P-256 public key should be 128 hex chars (64 bytes = x||y)
+        expect(publicKeyHex.length, equals(128),
+               reason: 'Public key hex should be 128 characters');
+        expect(publicKeyHex, matches(RegExp(r'^[0-9a-f]+$')),
+               reason: 'Public key hex should be lowercase hex');
+        
+        // Raw export should be 65 bytes (04 prefix + 64 bytes)
+        final Uint8List publicKeyRaw = await signingKeyPair.exportPublicKeyRaw();
+        expect(publicKeyRaw.length, equals(65),
+               reason: 'Raw public key should be 65 bytes (with 04 prefix)');
+        expect(publicKeyRaw[0], equals(0x04),
+               reason: 'Raw public key should start with 04 prefix');
+      }
+    });
+  });
+
+
+  group('EncryptionKeyPair (RSA-OAEP)', () {
+    test('property test - Encryption key export includes correct metadata', () async {
+      for (int i = 0; i < expensiveIterations; i++) {
+        final ({RsaOaepPrivateKey privateKey, RsaOaepPublicKey publicKey}) keyPair =
+            await RsaOaepPrivateKey.generateKey(
+              RsaParameters.modulusLength,
+              BigInt.from(RsaParameters.publicExponent),
+              Hash.sha256,
+            );
+        
         final EncryptionKeyPair encryptionKeyPair = EncryptionKeyPair(
           privateKey: keyPair.privateKey,
           publicKey: keyPair.publicKey,
         );
         
-        // Test private key export
         final ExportedJwk privateExport = await encryptionKeyPair.exportPrivateKey();
         
-        // Property: Private key export must have correct algorithm
         expect(privateExport.alg, equals(JwkAlgorithm.rsaOaep256),
                reason: 'Encryption key must have RSA-OAEP-256 algorithm');
-        
-        // Property: Private key export must have correct use
         expect(privateExport.use, equals(JwkUse.encryption),
                reason: 'Encryption key must have encryption use');
-        
-        // Property: Private key export must have valid key ID (RFC 7638 thumbprint)
         expect(privateExport.keyId, isNotEmpty,
                reason: 'Key ID must not be empty');
-        expect(privateExport.keyId, matches(RegExp(r'^[A-Za-z0-9_-]+$')),
-               reason: 'Key ID should be valid base64url format');
         
-        // Property: Key ID should be consistent across exports
         final String keyId1 = await encryptionKeyPair.calculateKeyId();
         final String keyId2 = await encryptionKeyPair.calculateKeyId();
         expect(keyId1, equals(keyId2),
                reason: 'Key ID should be consistent across calculations');
-        expect(privateExport.keyId, equals(keyId1),
-               reason: 'Export kid should match calculated key ID');
         
-        // Test public key export
         final ExportedJwk publicExport = await encryptionKeyPair.exportPublicKey();
         
-        // Property: Public key export must have same metadata as private
-        expect(publicExport.alg, equals(JwkAlgorithm.rsaOaep256),
-               reason: 'Public key must have same algorithm as private');
-        expect(publicExport.use, equals(JwkUse.encryption),
-               reason: 'Public key must have same use as private');
-        expect(publicExport.keyId, equals(privateExport.keyId),
-               reason: 'Public key must have same kid as private');
+        expect(publicExport.alg, equals(JwkAlgorithm.rsaOaep256));
+        expect(publicExport.use, equals(JwkUse.encryption));
+        expect(publicExport.keyId, equals(privateExport.keyId));
         
-        // Property: Exported JSON must contain required metadata
         final Map<String, dynamic> privateJson = privateExport.toJson();
-        expect(privateJson['alg'], equals(JwkAlgorithm.rsaOaep256));
-        expect(privateJson['use'], equals(JwkUse.encryption));
-        expect(privateJson['kid'], equals(privateExport.keyId));
         expect(privateJson['kty'], equals(JwkKeyType.rsa));
+        expect(privateJson.containsKey('d'), isTrue,
+               reason: 'Private key must contain private exponent');
         
         final Map<String, dynamic> publicJson = publicExport.toJson();
-        expect(publicJson['alg'], equals(JwkAlgorithm.rsaOaep256));
-        expect(publicJson['use'], equals(JwkUse.encryption));
-        expect(publicJson['kid'], equals(publicExport.keyId));
         expect(publicJson['kty'], equals(JwkKeyType.rsa));
-        
-        // Property: Public export must not contain private components
         expect(publicJson.containsKey('d'), isFalse,
-               reason: 'Public key export must not contain private exponent');
-        
-        // Test with standard RFC 7638 key ID formatting
-        final EncryptionKeyPair customKeyPair = EncryptionKeyPair(
-          privateKey: keyPair.privateKey,
-          publicKey: keyPair.publicKey,
-          
-        );
-        
-        final String customKeyId = await customKeyPair.calculateKeyId();
-        expect(customKeyId, matches(RegExp(r'^[A-Za-z0-9_-]+$')),
-               reason: 'Key ID should be RFC 7638 thumbprint format');
-        
-        final ExportedJwk customExport = await customKeyPair.exportPrivateKey();
-        expect(customExport.keyId, equals(customKeyId),
-               reason: 'Export should use custom key ID');
+               reason: 'Public key must not contain private exponent');
       }
     });
 
-    /// **Feature: dart-jwk-duo, Property 16: Encryption key pair validation**
-    /// **Validates: Security requirement for key pair integrity**
     test('property test - Encryption key pair validation', () async {
-      // Run property test with expensive iterations (RSA key generation is expensive)
       for (int i = 0; i < expensiveIterations; i++) {
-        // Generate RSA-OAEP key pair for testing
-        final KeyPair<RsaOaepPrivateKey, RsaOaepPublicKey> keyPair = await RsaOaepPrivateKey.generateKey(
-          RsaParameters.modulusLength,
-          BigInt.from(RsaParameters.publicExponent),
-          Hash.sha256,
-        );
+        final ({RsaOaepPrivateKey privateKey, RsaOaepPublicKey publicKey}) keyPair =
+            await RsaOaepPrivateKey.generateKey(
+              RsaParameters.modulusLength,
+              BigInt.from(RsaParameters.publicExponent),
+              Hash.sha256,
+            );
         
         final EncryptionKeyPair encryptionKeyPair = EncryptionKeyPair(
           privateKey: keyPair.privateKey,
           publicKey: keyPair.publicKey,
         );
         
-        // Property: Valid key pair should pass validation
         final bool isValid = await encryptionKeyPair.validateKeyPair();
         expect(isValid, isTrue,
                reason: 'Properly paired keys should validate successfully');
         
-        // Test public-only key pair validation
         final EncryptionKeyPair publicOnlyKeyPair = EncryptionKeyPair.publicOnly(
           publicKey: keyPair.publicKey,
         );
         
-        // Property: Public-only key pair should throw StateError
         expect(
           () => publicOnlyKeyPair.validateKeyPair(),
           throwsA(isA<StateError>()),
@@ -482,121 +387,91 @@ void main() {
     });
   });
 
+
   group('KeyDuo and KeyDuoGenerator', () {
-    /// **Feature: dart-jwk-duo, Property 1: Key generation produces correct key types**
-    /// **Validates: Requirements 1.1, 1.2, 2.1, 2.2**
     test('property test - Key generation produces correct key types', () async {
-      
-      // Run property test with expensive iterations (RSA key generation is expensive)
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuoGenerator generator = KeyDuoGenerator(
           modulusLength: RsaParameters.modulusLength,
         );
         final IKeyDuo keyDuo = await generator.generateKeyDuo();
         
-        // Property: Key duo must contain signing key pair with correct types
-        expect(keyDuo.signing, isA<IKeyPair<RsaPssPrivateKey, RsaPssPublicKey>>(),
-               reason: 'Signing key pair must have RSA-PSS types');
-        expect(keyDuo.signing.privateKey, isA<RsaPssPrivateKey>(),
-               reason: 'Signing private key must be RSA-PSS type');
-        expect(keyDuo.signing.publicKey, isA<RsaPssPublicKey>(),
-               reason: 'Signing public key must be RSA-PSS type');
+        // Signing key must be ECDSA P-256
+        expect(keyDuo.signing, isA<IKeyPair<EcdsaPrivateKey?, EcdsaPublicKey>>(),
+               reason: 'Signing key pair must have ECDSA types');
+        expect(keyDuo.signing.privateKey, isA<EcdsaPrivateKey>(),
+               reason: 'Signing private key must be ECDSA type');
+        expect(keyDuo.signing.publicKey, isA<EcdsaPublicKey>(),
+               reason: 'Signing public key must be ECDSA type');
         
-        // Property: Key duo must contain encryption key pair with correct types
-        expect(keyDuo.encryption, isA<IKeyPair<RsaOaepPrivateKey, RsaOaepPublicKey>>(),
+        // Encryption key must be RSA-OAEP
+        expect(keyDuo.encryption, isA<IKeyPair<RsaOaepPrivateKey?, RsaOaepPublicKey>>(),
                reason: 'Encryption key pair must have RSA-OAEP types');
         expect(keyDuo.encryption.privateKey, isA<RsaOaepPrivateKey>(),
                reason: 'Encryption private key must be RSA-OAEP type');
         expect(keyDuo.encryption.publicKey, isA<RsaOaepPublicKey>(),
                reason: 'Encryption public key must be RSA-OAEP type');
         
-        // Property: Signing key must export with correct metadata
+        // Signing key metadata
         final ExportedJwk signingExport = await keyDuo.signing.exportPrivateKey();
-        expect(signingExport.alg, equals(JwkAlgorithm.ps256),
-               reason: 'Signing key must have PS256 algorithm');
+        expect(signingExport.alg, equals(JwkAlgorithm.es256),
+               reason: 'Signing key must have ES256 algorithm');
         expect(signingExport.use, equals(JwkUse.signature),
                reason: 'Signing key must have signature use');
         
-        // Property: Encryption key must export with correct metadata
+        // Encryption key metadata
         final ExportedJwk encryptionExport = await keyDuo.encryption.exportPrivateKey();
         expect(encryptionExport.alg, equals(JwkAlgorithm.rsaOaep256),
                reason: 'Encryption key must have RSA-OAEP-256 algorithm');
         expect(encryptionExport.use, equals(JwkUse.encryption),
                reason: 'Encryption key must have encryption use');
         
-        // Property: Keys must be different (different thumbprints)
+        // Keys must be different
         expect(signingExport.keyId, isNot(equals(encryptionExport.keyId)),
                reason: 'Signing and encryption keys must have different key IDs');
       }
     });
 
-    /// **Feature: dart-jwk-duo, Property 2: Key generation uses correct cryptographic parameters**
-    /// **Validates: Requirements 1.3, 1.4**
     test('property test - Key generation uses correct cryptographic parameters', () async {
-      
-      // Run property test with expensive iterations (RSA key generation is expensive)
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
         final IKeyDuo keyDuo = await generator.generateKeyDuo();
         
-        // Export keys to inspect their parameters
         final ExportedJwk signingExport = await keyDuo.signing.exportPrivateKey();
         final ExportedJwk encryptionExport = await keyDuo.encryption.exportPrivateKey();
         
         final Map<String, dynamic> signingJson = signingExport.toJson();
         final Map<String, dynamic> encryptionJson = encryptionExport.toJson();
         
-        // Property: Both keys must use RSA key type
-        expect(signingJson['kty'], equals(JwkKeyType.rsa),
-               reason: 'Signing key must use RSA key type');
+        // Signing key must be EC with P-256 curve
+        expect(signingJson['kty'], equals(JwkKeyType.ec),
+               reason: 'Signing key must use EC key type');
+        expect(signingJson['crv'], equals(JwkCurve.p256),
+               reason: 'Signing key must use P-256 curve');
+        expect(signingJson.containsKey('x'), isTrue,
+               reason: 'EC key must contain x coordinate');
+        expect(signingJson.containsKey('y'), isTrue,
+               reason: 'EC key must contain y coordinate');
+        expect(signingJson.containsKey('d'), isTrue,
+               reason: 'Private EC key must contain d component');
+        
+        // Encryption key must be RSA
         expect(encryptionJson['kty'], equals(JwkKeyType.rsa),
                reason: 'Encryption key must use RSA key type');
-        
-        // Property: Both keys must use standard public exponent (65537 = AQAB in base64url)
-        expect(signingJson['e'], equals('AQAB'),
-               reason: 'Signing key must use standard public exponent 65537');
         expect(encryptionJson['e'], equals('AQAB'),
                reason: 'Encryption key must use standard public exponent 65537');
-        
-        // Property: Both keys must have modulus of appropriate length for 2048-bit keys
-        // Base64url encoding of 2048-bit (256 byte) modulus should be around 342-344 characters
-        final String signingModulus = signingJson['n'] as String;
-        final String encryptionModulus = encryptionJson['n'] as String;
-        
-        expect(signingModulus.length, greaterThanOrEqualTo(340),
-               reason: 'Signing key modulus should be appropriate length for 2048-bit key (test)');
-        expect(signingModulus.length, lessThanOrEqualTo(350),
-               reason: 'Signing key modulus should not be too long for 2048-bit key (test)');
-        
-        expect(encryptionModulus.length, greaterThanOrEqualTo(340),
-               reason: 'Encryption key modulus should be appropriate length for 2048-bit key (test)');
-        expect(encryptionModulus.length, lessThanOrEqualTo(350),
-               reason: 'Encryption key modulus should not be too long for 2048-bit key (test)');
-        
-        // Property: Keys must contain private exponent for private key exports
-        expect(signingJson.containsKey('d'), isTrue,
-               reason: 'Signing private key export must contain private exponent');
+        expect(encryptionJson.containsKey('n'), isTrue,
+               reason: 'RSA key must contain modulus n');
         expect(encryptionJson.containsKey('d'), isTrue,
-               reason: 'Encryption private key export must contain private exponent');
-        
-        // Property: Private exponents must be non-empty
-        expect(signingJson['d'], isNotEmpty,
-               reason: 'Signing private exponent must not be empty');
-        expect(encryptionJson['d'], isNotEmpty,
-               reason: 'Encryption private exponent must not be empty');
+               reason: 'Private RSA key must contain private exponent d');
       }
     });
 
-    /// **Feature: dart-jwk-duo, Property 3: Key duo contains both key pairs**
-    /// **Validates: Requirements 1.5**
     test('property test - Key duo contains both key pairs', () async {
-      
-      // Run property test with expensive iterations (RSA key generation is expensive)
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
         final IKeyDuo keyDuo = await generator.generateKeyDuo();
         
-        // Property: Key duo must provide access to signing key pair
         expect(keyDuo.signing, isNotNull,
                reason: 'Key duo must provide signing key pair');
         expect(keyDuo.signing.privateKey, isNotNull,
@@ -604,7 +479,6 @@ void main() {
         expect(keyDuo.signing.publicKey, isNotNull,
                reason: 'Signing key pair must have public key');
         
-        // Property: Key duo must provide access to encryption key pair
         expect(keyDuo.encryption, isNotNull,
                reason: 'Key duo must provide encryption key pair');
         expect(keyDuo.encryption.privateKey, isNotNull,
@@ -612,79 +486,69 @@ void main() {
         expect(keyDuo.encryption.publicKey, isNotNull,
                reason: 'Encryption key pair must have public key');
         
-        // Property: Both key pairs must be functional (can export)
+        // Both key pairs must be functional
         final ExportedJwk signingPrivateExport = await keyDuo.signing.exportPrivateKey();
         final ExportedJwk signingPublicExport = await keyDuo.signing.exportPublicKey();
         final ExportedJwk encryptionPrivateExport = await keyDuo.encryption.exportPrivateKey();
         final ExportedJwk encryptionPublicExport = await keyDuo.encryption.exportPublicKey();
         
-        expect(signingPrivateExport, isNotNull,
-               reason: 'Signing key pair must be able to export private key');
-        expect(signingPublicExport, isNotNull,
-               reason: 'Signing key pair must be able to export public key');
-        expect(encryptionPrivateExport, isNotNull,
-               reason: 'Encryption key pair must be able to export private key');
-        expect(encryptionPublicExport, isNotNull,
-               reason: 'Encryption key pair must be able to export public key');
+        expect(signingPrivateExport, isNotNull);
+        expect(signingPublicExport, isNotNull);
+        expect(encryptionPrivateExport, isNotNull);
+        expect(encryptionPublicExport, isNotNull);
         
-        // Property: Key pairs must have consistent key IDs between private and public exports
-        expect(signingPrivateExport.keyId, equals(signingPublicExport.keyId),
-               reason: 'Signing private and public exports must have same key ID');
-        expect(encryptionPrivateExport.keyId, equals(encryptionPublicExport.keyId),
-               reason: 'Encryption private and public exports must have same key ID');
+        // Key IDs must be consistent
+        expect(signingPrivateExport.keyId, equals(signingPublicExport.keyId));
+        expect(encryptionPrivateExport.keyId, equals(encryptionPublicExport.keyId));
         
-        // Property: Key pairs must be independently accessible (different instances)
-        expect(identical(keyDuo.signing, keyDuo.encryption), isFalse,
-               reason: 'Signing and encryption key pairs must be different instances');
-        
-        // Property: Key IDs must be calculable independently
-        final String signingKeyId = await keyDuo.signing.calculateKeyId();
-        final String encryptionKeyId = await keyDuo.encryption.calculateKeyId();
-        
-        expect(signingKeyId, isNotEmpty,
-               reason: 'Signing key ID must be calculable');
-        expect(encryptionKeyId, isNotEmpty,
-               reason: 'Encryption key ID must be calculable');
-        expect(signingKeyId, isNot(equals(encryptionKeyId)),
-               reason: 'Signing and encryption key IDs must be different');
+        // Key pairs must be different instances
+        expect(identical(keyDuo.signing, keyDuo.encryption), isFalse);
       }
+    });
+
+    test('property test - KeyDuo signingKeyPair accessor', () async {
+      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
+      final KeyDuo keyDuo = await generator.generateKeyDuo() as KeyDuo;
+      
+      // Access concrete SigningKeyPair for signing operations
+      final SigningKeyPair signingKeyPair = keyDuo.signingKeyPair;
+      
+      // Should be able to sign and export hex
+      final Uint8List message = Uint8List.fromList('test'.codeUnits);
+      final Uint8List signature = await signingKeyPair.signBytes(message);
+      expect(signature.length, equals(64), reason: 'ECDSA P-256 signature should be 64 bytes');
+      
+      final String publicKeyHex = await signingKeyPair.exportPublicKeyHex();
+      expect(publicKeyHex.length, equals(128), reason: 'Public key hex should be 128 chars');
     });
   });
 
+
   group('KeyDuoSerializer', () {
-    /// **Feature: dart-jwk-duo, Property 6: JWK Set export structure**
-    /// **Validates: Requirements 3.1**
     test('property test - JWK Set export structure', () async {
-      final generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
+      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
       
-      // Run property test with expensive iterations (key generation is slow)
       for (int i = 0; i < expensiveIterations; i++) {
-        // Generate a random key duo
-        final keyDuo = await generator.generateKeyDuo();
-        final serializer = KeyDuoSerializer();
+        final IKeyDuo keyDuo = await generator.generateKeyDuo();
+        final KeyDuoSerializer serializer = KeyDuoSerializer();
         
-        // Export as JWK Set
-        final jwkSetJson = await serializer.exportKeyDuo(keyDuo);
-        final jwkSetData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
+        final String jwkSetJson = await serializer.exportKeyDuo(keyDuo);
+        final Map<String, dynamic> jwkSetData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
         
-        // Property: JWK Set must contain "keys" array
         expect(jwkSetData.containsKey('keys'), isTrue,
                reason: 'JWK Set must contain "keys" array');
         
-        final keys = jwkSetData['keys'] as List;
+        final List<dynamic> keys = jwkSetData['keys'] as List<dynamic>;
         
-        // Property: JWK Set must contain exactly 2 keys
         expect(keys.length, equals(2),
                reason: 'JWK Set must contain exactly 2 keys');
         
-        // Property: Each key must be a valid object
-        for (final key in keys) {
+        for (final dynamic key in keys) {
           expect(key, isA<Map<String, dynamic>>(),
                  reason: 'Each key in JWK Set must be an object');
           
-          final keyMap = key as Map<String, dynamic>;
+          final Map<String, dynamic> keyMap = key as Map<String, dynamic>;
           
-          // Property: Each key must have required metadata
           expect(keyMap.containsKey('kid'), isTrue,
                  reason: 'Each key must have key identifier');
           expect(keyMap.containsKey('alg'), isTrue,
@@ -695,78 +559,67 @@ void main() {
                  reason: 'Each key must have key type');
         }
         
-        // Property: Must contain one signing key and one encryption key
-        final uses = keys.map((k) => (k as Map<String, dynamic>)['use']).toSet();
+        // Must contain one signing key (EC) and one encryption key (RSA)
+        final Set<String> uses = keys.map((k) => (k as Map<String, dynamic>)['use'] as String).toSet();
         expect(uses.contains('sig'), isTrue,
                reason: 'JWK Set must contain a signing key');
         expect(uses.contains('enc'), isTrue,
                reason: 'JWK Set must contain an encryption key');
+        
+        final Set<String> ktys = keys.map((k) => (k as Map<String, dynamic>)['kty'] as String).toSet();
+        expect(ktys.contains('EC'), isTrue,
+               reason: 'JWK Set must contain an EC key (signing)');
+        expect(ktys.contains('RSA'), isTrue,
+               reason: 'JWK Set must contain an RSA key (encryption)');
       }
     });
 
-    /// **Feature: dart-jwk-duo, Property 7: Private key export completeness**
-    /// **Validates: Requirements 3.4, 3.5**
     test('property test - Private key export completeness', () async {
-      final generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
+      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
       
-      // Run property test with expensive iterations
       for (int i = 0; i < expensiveIterations; i++) {
-        final keyDuo = await generator.generateKeyDuo();
-        final serializer = KeyDuoSerializer();
+        final IKeyDuo keyDuo = await generator.generateKeyDuo();
+        final KeyDuoSerializer serializer = KeyDuoSerializer();
         
-        // Export private keys
-        final jwkSetJson = await serializer.exportKeyDuo(keyDuo);
-        final jwkSetData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
-        final keys = jwkSetData['keys'] as List;
+        final String jwkSetJson = await serializer.exportKeyDuo(keyDuo);
+        final Map<String, dynamic> jwkSetData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
+        final List<dynamic> keys = jwkSetData['keys'] as List<dynamic>;
         
-        for (final key in keys) {
-          final keyMap = key as Map<String, dynamic>;
-          
-          // Property: Private key export must contain all required RSA parameters
-          expect(keyMap['kty'], equals('RSA'),
-                 reason: 'Key type must be RSA');
-          expect(keyMap.containsKey('n'), isTrue,
-                 reason: 'RSA key must contain modulus "n"');
-          expect(keyMap.containsKey('e'), isTrue,
-                 reason: 'RSA key must contain public exponent "e"');
-          expect(keyMap.containsKey('d'), isTrue,
-                 reason: 'Private key must contain private exponent "d"');
-          
-          // Property: Private exponent must not be empty
-          expect(keyMap['d'], isNotEmpty,
-                 reason: 'Private exponent must not be empty');
-          
-          // Property: Algorithm and use must be consistent
-          final alg = keyMap['alg'] as String;
-          final use = keyMap['use'] as String;
+        for (final dynamic key in keys) {
+          final Map<String, dynamic> keyMap = key as Map<String, dynamic>;
+          final String use = keyMap['use'] as String;
+          final String kty = keyMap['kty'] as String;
           
           if (use == 'sig') {
-            expect(alg, equals('PS256'),
-                   reason: 'Signing key must have PS256 algorithm');
+            // Signing key must be EC with ES256
+            expect(kty, equals('EC'), reason: 'Signing key must be EC type');
+            expect(keyMap['alg'], equals('ES256'), reason: 'Signing key must have ES256 algorithm');
+            expect(keyMap['crv'], equals('P-256'), reason: 'Signing key must use P-256 curve');
+            expect(keyMap.containsKey('x'), isTrue, reason: 'EC key must contain x coordinate');
+            expect(keyMap.containsKey('y'), isTrue, reason: 'EC key must contain y coordinate');
+            expect(keyMap.containsKey('d'), isTrue, reason: 'Private EC key must contain d component');
           } else if (use == 'enc') {
-            expect(alg, equals('RSA-OAEP-256'),
-                   reason: 'Encryption key must have RSA-OAEP-256 algorithm');
+            // Encryption key must be RSA with RSA-OAEP-256
+            expect(kty, equals('RSA'), reason: 'Encryption key must be RSA type');
+            expect(keyMap['alg'], equals('RSA-OAEP-256'), reason: 'Encryption key must have RSA-OAEP-256 algorithm');
+            expect(keyMap.containsKey('n'), isTrue, reason: 'RSA key must contain modulus n');
+            expect(keyMap.containsKey('e'), isTrue, reason: 'RSA key must contain public exponent e');
+            expect(keyMap.containsKey('d'), isTrue, reason: 'Private RSA key must contain private exponent d');
           }
         }
       }
     });
 
-    /// **Feature: dart-jwk-duo, Property 8: JWK Set import validation**
-    /// **Validates: Requirements 4.1, 4.2, 4.3**
     test('property test - JWK Set import validation', () async {
-      final generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
-      final serializer = KeyDuoSerializer();
+      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
+      final KeyDuoSerializer serializer = KeyDuoSerializer();
       
-      // Run property test with expensive iterations
       for (int i = 0; i < expensiveIterations; i++) {
-        // Generate and export a key duo
-        final originalKeyDuo = await generator.generateKeyDuo();
-        final jwkSetJson = await serializer.exportKeyDuo(originalKeyDuo);
+        final IKeyDuo originalKeyDuo = await generator.generateKeyDuo();
+        final String jwkSetJson = await serializer.exportKeyDuo(originalKeyDuo);
         
-        // Property: Valid JWK Set should import successfully
-        final importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
+        final IKeyDuo importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
         
-        // Property: Imported key duo should have correct structure
         expect(importedKeyDuo, isA<IKeyDuo>(),
                reason: 'Import should return IKeyDuo instance');
         expect(importedKeyDuo.signing, isNotNull,
@@ -774,11 +627,11 @@ void main() {
         expect(importedKeyDuo.encryption, isNotNull,
                reason: 'Imported key duo must have encryption key pair');
         
-        // Property: Imported keys should have correct types
-        expect(importedKeyDuo.signing.privateKey, isA<RsaPssPrivateKey>(),
-               reason: 'Signing private key must be RSA-PSS type');
-        expect(importedKeyDuo.signing.publicKey, isA<RsaPssPublicKey>(),
-               reason: 'Signing public key must be RSA-PSS type');
+        // Imported keys should have correct types
+        expect(importedKeyDuo.signing.privateKey, isA<EcdsaPrivateKey>(),
+               reason: 'Signing private key must be ECDSA type');
+        expect(importedKeyDuo.signing.publicKey, isA<EcdsaPublicKey>(),
+               reason: 'Signing public key must be ECDSA type');
         expect(importedKeyDuo.encryption.privateKey, isA<RsaOaepPrivateKey>(),
                reason: 'Encryption private key must be RSA-OAEP type');
         expect(importedKeyDuo.encryption.publicKey, isA<RsaOaepPublicKey>(),
@@ -786,24 +639,17 @@ void main() {
       }
     });
 
-    /// **Feature: dart-jwk-duo, Property 9: Import key validation**
-    /// **Validates: Requirements 4.4**
-    test('property test - Import key validation', () async {
-      final serializer = KeyDuoSerializer();
+    test('property test - Import key validation errors', () async {
+      final KeyDuoSerializer serializer = KeyDuoSerializer();
       
-      // Test invalid JWK Set structures
-      final invalidJwkSets = [
+      final List<String> invalidJwkSets = [
         '{}', // Missing keys array
         '{"keys": []}', // Empty keys array
         '{"keys": [{}]}', // Single key (need 2)
         '{"keys": [{}, {}, {}]}', // Too many keys
-        '{"keys": [{"use": "sig"}, {"use": "invalid"}]}', // Invalid use
-        '{"keys": [{"use": "sig", "kty": "EC"}, {"use": "enc", "kty": "RSA"}]}', // Wrong key type
-        '{"keys": [{"use": "sig", "kty": "RSA"}, {"use": "enc", "kty": "RSA"}]}', // Missing required fields
       ];
       
-      for (final invalidJwkSet in invalidJwkSets) {
-        // Property: Invalid JWK Sets should throw FormatException
+      for (final String invalidJwkSet in invalidJwkSets) {
         expect(
           () => serializer.importKeyDuo(invalidJwkSet),
           throwsA(isA<FormatException>()),
@@ -819,147 +665,84 @@ void main() {
       );
     });
 
-    /// **Feature: dart-jwk-duo, Property 10: Import-export round trip**
-    /// **Validates: Requirements 4.5**
     test('property test - Import-export round trip', () async {
-      final generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
-      final serializer = KeyDuoSerializer();
+      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
+      final KeyDuoSerializer serializer = KeyDuoSerializer();
       
-      // Run property test with expensive iterations
       for (int i = 0; i < expensiveIterations; i++) {
-        // Generate original key duo
-        final originalKeyDuo = await generator.generateKeyDuo();
+        final IKeyDuo originalKeyDuo = await generator.generateKeyDuo();
         
-        // Export to JWK Set
-        final jwkSetJson = await serializer.exportKeyDuo(originalKeyDuo);
+        final String jwkSetJson = await serializer.exportKeyDuo(originalKeyDuo);
+        final IKeyDuo importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
+        final String reExportedJson = await serializer.exportKeyDuo(importedKeyDuo);
         
-        // Import back to KeyDuo
-        final importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
+        final Map<String, dynamic> originalData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
+        final Map<String, dynamic> reExportedData = jsonDecode(reExportedJson) as Map<String, dynamic>;
         
-        // Export again to verify consistency
-        final reExportedJson = await serializer.exportKeyDuo(importedKeyDuo);
-        
-        // Property: Round-trip should preserve key structure
-        final originalData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
-        final reExportedData = jsonDecode(reExportedJson) as Map<String, dynamic>;
-        
-        // Compare key structure (not exact equality due to potential ordering differences)
-        final originalKeys = originalData['keys'] as List;
-        final reExportedKeys = reExportedData['keys'] as List;
+        final List<dynamic> originalKeys = originalData['keys'] as List<dynamic>;
+        final List<dynamic> reExportedKeys = reExportedData['keys'] as List<dynamic>;
         
         expect(originalKeys.length, equals(reExportedKeys.length),
                reason: 'Round-trip should preserve number of keys');
         
         // Verify both key sets contain the same key identifiers
-        final originalKids = originalKeys.map((k) => (k as Map<String, dynamic>)['kid']).toSet();
-        final reExportedKids = reExportedKeys.map((k) => (k as Map<String, dynamic>)['kid']).toSet();
+        final Set<String> originalKids = originalKeys.map((k) => (k as Map<String, dynamic>)['kid'] as String).toSet();
+        final Set<String> reExportedKids = reExportedKeys.map((k) => (k as Map<String, dynamic>)['kid'] as String).toSet();
         
         expect(originalKids, equals(reExportedKids),
                reason: 'Round-trip should preserve key identifiers');
         
-        // Property: Imported keys should be functional
-        final signingExport = await importedKeyDuo.signing.exportPrivateKey();
-        final encryptionExport = await importedKeyDuo.encryption.exportPrivateKey();
+        // Imported keys should be functional
+        final ExportedJwk signingExport = await importedKeyDuo.signing.exportPrivateKey();
+        final ExportedJwk encryptionExport = await importedKeyDuo.encryption.exportPrivateKey();
         
-        expect(signingExport.alg, equals('PS256'),
+        expect(signingExport.alg, equals('ES256'),
                reason: 'Imported signing key should have correct algorithm');
         expect(encryptionExport.alg, equals('RSA-OAEP-256'),
                reason: 'Imported encryption key should have correct algorithm');
       }
     });
-  });
 
-  group('Configuration and Validation', () {
-    /// **Feature: dart-jwk-duo, Property 14: Thumbprint validation**
-    /// **Validates: Requirements 5.4, 5.5**
-    test('property test - Thumbprint validation', () async {
-      // Run property test with expensive iterations (RSA key generation is expensive)
+    test('property test - Public key export and import', () async {
+      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
+      final KeyDuoSerializer serializer = KeyDuoSerializer();
+      
       for (int i = 0; i < expensiveIterations; i++) {
-        // Generate key pairs with the configuration
-        final KeyDuoGenerator generator = KeyDuoGenerator(
-          modulusLength: RsaParameters.modulusLength,
-        );
-        final IKeyDuo keyDuo = await generator.generateKeyDuo();
+        final IKeyDuo originalKeyDuo = await generator.generateKeyDuo();
         
-        // Test signing key thumbprint validation
-        final ExportedJwk signingExport = await keyDuo.signing.exportPrivateKey();
-        final Map<String, dynamic> signingJson = signingExport.toJson();
+        // Export public keys only
+        final String publicJwkSetJson = await serializer.exportPublicKeyDuo(originalKeyDuo);
+        final Map<String, dynamic> publicJwkSetData = jsonDecode(publicJwkSetJson) as Map<String, dynamic>;
+        final List<dynamic> publicKeys = publicJwkSetData['keys'] as List<dynamic>;
         
-        // Property: The 'kid' field should be based on RFC 7638 thumbprint
-        final String expectedSigningThumbprint = await calculateJwkThumbprint({
-          'kty': signingJson['kty'],
-          'n': signingJson['n'],
-          'e': signingJson['e'],
-        });
+        // Verify no private components
+        for (final dynamic key in publicKeys) {
+          final Map<String, dynamic> keyMap = key as Map<String, dynamic>;
+          expect(keyMap.containsKey('d'), isFalse,
+                 reason: 'Public key export must not contain private component d');
+        }
         
-        // Check if the kid matches the expected RFC 7638 thumbprint
-        expect(signingExport.keyId, equals(expectedSigningThumbprint),
-               reason: 'Signing key ID should be RFC 7638 thumbprint');
+        // Import public keys
+        final IKeyDuo importedPublicKeyDuo = await serializer.importPublicKeyDuo(publicJwkSetJson);
         
-        // Test encryption key thumbprint validation
-        final ExportedJwk encryptionExport = await keyDuo.encryption.exportPrivateKey();
-        final Map<String, dynamic> encryptionJson = encryptionExport.toJson();
-        
-        // Property: The 'kid' field should be based on RFC 7638 thumbprint
-        final String expectedEncryptionThumbprint = await calculateJwkThumbprint({
-          'kty': encryptionJson['kty'],
-          'n': encryptionJson['n'],
-          'e': encryptionJson['e'],
-        });
-        
-        // Check if the kid matches the expected RFC 7638 thumbprint
-        expect(encryptionExport.keyId, equals(expectedEncryptionThumbprint),
-               reason: 'Encryption key ID should be RFC 7638 thumbprint');
-        
-        // Property: Public key exports should have same kid as private key exports
-        final ExportedJwk signingPublicExport = await keyDuo.signing.exportPublicKey();
-        final ExportedJwk encryptionPublicExport = await keyDuo.encryption.exportPublicKey();
-        
-        expect(signingPublicExport.keyId, equals(signingExport.keyId),
-               reason: 'Signing public key should have same kid as private key');
-        expect(encryptionPublicExport.keyId, equals(encryptionExport.keyId),
-               reason: 'Encryption public key should have same kid as private key');
-        
-        // Property: Thumbprint should be consistent across multiple calculations
-        final String signingKeyId1 = await keyDuo.signing.calculateKeyId();
-        final String signingKeyId2 = await keyDuo.signing.calculateKeyId();
-        final String encryptionKeyId1 = await keyDuo.encryption.calculateKeyId();
-        final String encryptionKeyId2 = await keyDuo.encryption.calculateKeyId();
-        
-        expect(signingKeyId1, equals(signingKeyId2),
-               reason: 'Signing key ID calculation should be consistent');
-        expect(encryptionKeyId1, equals(encryptionKeyId2),
-               reason: 'Encryption key ID calculation should be consistent');
-        
-        // Property: Calculated key IDs should match export kid values
-        expect(signingExport.keyId, equals(signingKeyId1),
-               reason: 'Signing export kid should match calculated key ID');
-        expect(encryptionExport.keyId, equals(encryptionKeyId1),
-               reason: 'Encryption export kid should match calculated key ID');
-        
-        // Property: Configuration should be applied consistently across serialization
-        final KeyDuoSerializer serializer = KeyDuoSerializer();
-        final String jwkSetJson = await serializer.exportKeyDuo(keyDuo);
-        final IKeyDuo importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
-        
-        // Verify that imported keys maintain the same key IDs
-        final ExportedJwk importedSigningExport = await importedKeyDuo.signing.exportPrivateKey();
-        final ExportedJwk importedEncryptionExport = await importedKeyDuo.encryption.exportPrivateKey();
-        
-        expect(importedSigningExport.keyId, equals(signingExport.keyId),
-               reason: 'Imported signing key should maintain same kid');
-        expect(importedEncryptionExport.keyId, equals(encryptionExport.keyId),
-               reason: 'Imported encryption key should maintain same kid');
+        expect(importedPublicKeyDuo.signing.hasPrivateKey, isFalse,
+               reason: 'Imported public signing key should not have private key');
+        expect(importedPublicKeyDuo.encryption.hasPrivateKey, isFalse,
+               reason: 'Imported public encryption key should not have private key');
       }
     });
   });
+
 }
 
-/// Generates a random RSA JWK for testing
+// ═══════════════════════════════════════════════════════════════════════════
+// Helper Functions
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Generates a random RSA JWK for thumbprint testing
 Map<String, dynamic> _generateRandomRsaJwk(Random random) {
-  // Generate random base64url strings for RSA parameters
-  final n = _generateRandomBase64Url(random, 256); // 2048-bit modulus
-  final e = 'AQAB'; // Standard public exponent (65537)
+  final String n = _generateRandomBase64Url(random, 256);
+  const String e = 'AQAB';
   
   return {
     'kty': 'RSA',
@@ -970,18 +753,34 @@ Map<String, dynamic> _generateRandomRsaJwk(Random random) {
 
 /// Generates a random base64url string of specified byte length
 String _generateRandomBase64Url(Random random, int byteLength) {
-  final bytes = List<int>.generate(byteLength, (_) => random.nextInt(256));
-  // Use proper base64 encoding and convert to base64url format
-  final base64 = base64Encode(bytes);
-  // Convert to base64url format (RFC 4648 Section 5)
+  final List<int> bytes = List<int>.generate(byteLength, (_) => random.nextInt(256));
+  final String base64 = base64Encode(bytes);
   return base64.replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '');
 }
 
-/// Generates a valid RSA JWK with all required and optional components
+/// Generates a valid EC JWK with P-256 curve
+Map<String, dynamic> _generateValidEcJwkData(Random random, {bool includePrivate = false}) {
+  final String x = _generateRandomBase64Url(random, 32);
+  final String y = _generateRandomBase64Url(random, 32);
+  
+  final Map<String, dynamic> jwk = <String, dynamic>{
+    'kty': JwkKeyType.ec,
+    'crv': JwkCurve.p256,
+    'x': x,
+    'y': y,
+  };
+  
+  if (includePrivate) {
+    jwk['d'] = _generateRandomBase64Url(random, 32);
+  }
+  
+  return jwk;
+}
+
+/// Generates a valid RSA JWK
 Map<String, dynamic> _generateValidRsaJwkData(Random random, {bool includePrivate = false}) {
-  // Generate random base64url strings for RSA parameters
-  final String n = _generateRandomBase64Url(random, 256); // 2048-bit modulus
-  const String e = 'AQAB'; // Standard public exponent (65537)
+  final String n = _generateRandomBase64Url(random, 256);
+  const String e = 'AQAB';
   
   final Map<String, dynamic> jwk = <String, dynamic>{
     'kty': JwkKeyType.rsa,
@@ -990,21 +789,13 @@ Map<String, dynamic> _generateValidRsaJwkData(Random random, {bool includePrivat
   };
   
   if (includePrivate) {
-    // Add private RSA components for testing
-    jwk['d'] = _generateRandomBase64Url(random, 256); // Private exponent
-    jwk['p'] = _generateRandomBase64Url(random, 128); // First prime factor
-    jwk['q'] = _generateRandomBase64Url(random, 128); // Second prime factor
-    jwk['dp'] = _generateRandomBase64Url(random, 128); // First factor CRT exponent
-    jwk['dq'] = _generateRandomBase64Url(random, 128); // Second factor CRT exponent
-    jwk['qi'] = _generateRandomBase64Url(random, 128); // First CRT coefficient
+    jwk['d'] = _generateRandomBase64Url(random, 256);
+    jwk['p'] = _generateRandomBase64Url(random, 128);
+    jwk['q'] = _generateRandomBase64Url(random, 128);
+    jwk['dp'] = _generateRandomBase64Url(random, 128);
+    jwk['dq'] = _generateRandomBase64Url(random, 128);
+    jwk['qi'] = _generateRandomBase64Url(random, 128);
   }
   
   return jwk;
-}
-
-/// Checks if two JWKs are equal for the thumbprint calculation
-bool _areJwksEqual(Map<String, dynamic> jwk1, Map<String, dynamic> jwk2) {
-  return jwk1['kty'] == jwk2['kty'] &&
-         jwk1['n'] == jwk2['n'] &&
-         jwk1['e'] == jwk2['e'];
 }

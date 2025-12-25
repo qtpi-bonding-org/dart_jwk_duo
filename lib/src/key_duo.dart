@@ -16,7 +16,7 @@ class KeyDuo implements IKeyDuo {
 
   /// Creates a new KeyDuo container.
   /// 
-  /// [signing] - The signing key pair (RSA-PSS-256)
+  /// [signing] - The signing key pair (ECDSA P-256)
   /// [encryption] - The encryption key pair (RSA-OAEP-256)
   const KeyDuo({
     required SigningKeyPair signing,
@@ -25,8 +25,11 @@ class KeyDuo implements IKeyDuo {
        _encryption = encryption;
 
   @override
-  IKeyPair<RsaPssPrivateKey, RsaPssPublicKey> get signing => _signing;
+  IKeyPair<EcdsaPrivateKey?, EcdsaPublicKey> get signing => _signing;
 
   @override
-  IKeyPair<RsaOaepPrivateKey, RsaOaepPublicKey> get encryption => _encryption;
+  IKeyPair<RsaOaepPrivateKey?, RsaOaepPublicKey> get encryption => _encryption;
+  
+  /// Access the concrete SigningKeyPair for signing operations.
+  SigningKeyPair get signingKeyPair => _signing;
 }

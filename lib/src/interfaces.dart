@@ -9,8 +9,8 @@ import 'exported_jwk.dart';
 /// Provides type-safe access to private and public keys, along with
 /// export functionality that returns structured DTOs with guaranteed metadata.
 /// 
-/// [TPrivate] - The type of the private key (e.g., RsaPssPrivateKey)
-/// [TPublic] - The type of the public key (e.g., RsaPssPublicKey)
+/// [TPrivate] - The type of the private key (e.g., EcdsaPrivateKey)
+/// [TPublic] - The type of the public key (e.g., EcdsaPublicKey)
 abstract class IKeyPair<TPrivate, TPublic> {
   /// The private key of this key pair, or null if this is a public-only key pair
   TPrivate? get privateKey;
@@ -23,16 +23,10 @@ abstract class IKeyPair<TPrivate, TPublic> {
   
   /// Exports the private key as an ExportedJwk DTO.
   /// 
-  /// Returns an ExportedJwk containing the private key with all RSA components
-  /// (including private exponent 'd') and proper metadata (kid, alg, use).
-  /// 
   /// Throws [StateError] if this is a public-only key pair.
   Future<ExportedJwk> exportPrivateKey();
   
   /// Exports the public key as an ExportedJwk DTO.
-  /// 
-  /// Returns an ExportedJwk containing only public key components
-  /// (no private exponent 'd') with proper metadata (kid, alg, use).
   Future<ExportedJwk> exportPublicKey();
   
   /// Calculates the RFC 7638 JWK thumbprint for this key pair.
@@ -41,10 +35,6 @@ abstract class IKeyPair<TPrivate, TPublic> {
   Future<String> calculateKeyId();
   
   /// Validates that the private and public keys are mathematically paired.
-  /// 
-  /// Performs a cryptographic test to ensure the keys belong to the same
-  /// RSA key pair. This is an expensive operation that should only be used
-  /// when key pair integrity is uncertain.
   /// 
   /// Returns `true` if keys are properly paired, `false` otherwise.
   /// Throws [StateError] if this is a public-only key pair.
@@ -56,10 +46,10 @@ abstract class IKeyPair<TPrivate, TPublic> {
 /// Provides type-safe access to both key pairs with compile-time guarantees
 /// about the key types and their intended uses.
 abstract class IKeyDuo {
-  /// The signing key pair (RSA-PSS-256)
+  /// The signing key pair (ECDSA P-256)
   /// 
   /// Used for digital signatures and authentication.
-  IKeyPair<RsaPssPrivateKey?, RsaPssPublicKey> get signing;
+  IKeyPair<EcdsaPrivateKey?, EcdsaPublicKey> get signing;
   
   /// The encryption key pair (RSA-OAEP-256)
   /// 
