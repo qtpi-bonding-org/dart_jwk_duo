@@ -19,10 +19,10 @@ abstract class IKeyDuoSerializer {
   Future<String> exportPublicKeyDuo(IKeyDuo duo);
 
   /// Imports a KeyDuo from a JWK Set JSON string containing private keys.
-  Future<IKeyDuo> importKeyDuo(String jwkSetJson);
+  Future<KeyDuo> importKeyDuo(String jwkSetJson);
 
   /// Imports a public-only KeyDuo from a JWK Set JSON string.
-  Future<IKeyDuo> importPublicKeyDuo(String jwkSetJson);
+  Future<KeyDuo> importPublicKeyDuo(String jwkSetJson);
 }
 
 /// Implementation of IKeyDuoSerializer with validation and type safety.
@@ -55,7 +55,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
   }
 
   @override
-  Future<IKeyDuo> importKeyDuo(String jwkSetJson) async {
+  Future<KeyDuo> importKeyDuo(String jwkSetJson) async {
     final Map<String, dynamic> jwkSet;
     try {
       jwkSet = jsonDecode(jwkSetJson) as Map<String, dynamic>;
@@ -67,7 +67,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
   }
 
   @override
-  Future<IKeyDuo> importPublicKeyDuo(String jwkSetJson) async {
+  Future<KeyDuo> importPublicKeyDuo(String jwkSetJson) async {
     final Map<String, dynamic> jwkSet;
     try {
       jwkSet = jsonDecode(jwkSetJson) as Map<String, dynamic>;
@@ -79,7 +79,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     return _importKeyDuoFromMap(jwkSet, requirePrivateKeys: false);
   }
 
-  Future<IKeyDuo> _importKeyDuoFromMap(
+  Future<KeyDuo> _importKeyDuoFromMap(
     Map<String, dynamic> jwkSet, {
     required bool requirePrivateKeys,
   }) async {
