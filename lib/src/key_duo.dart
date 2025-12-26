@@ -32,4 +32,20 @@ class KeyDuo implements IKeyDuo {
   
   /// Access the concrete SigningKeyPair for signing operations.
   SigningKeyPair get signingKeyPair => _signing;
+  
+  /// Access the concrete EncryptionKeyPair for encryption operations.
+  EncryptionKeyPair get encryptionKeyPair => _encryption;
+
+  /// Verifies both key pairs work via cryptographic roundtrips.
+  /// 
+  /// Performs sign/verify on signing keys and encrypt/decrypt on encryption keys.
+  /// Throws [StateError] if either key pair is public-only.
+  /// Returns `true` if both pass, `false` if either fails.
+  Future<bool> verify() async {
+    final bool signingOk = await _signing.verifyKeyPair();
+    if (!signingOk) return false;
+    
+    final bool encryptionOk = await _encryption.verifyKeyPair();
+    return encryptionOk;
+  }
 }

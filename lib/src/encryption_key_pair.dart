@@ -90,20 +90,16 @@ class EncryptionKeyPair implements IKeyPair<RsaOaepPrivateKey, RsaOaepPublicKey>
   }
 
   @override
-  Future<bool> validateKeyPair() async {
+  Future<bool> verifyKeyPair() async {
     if (_privateKey == null) {
-      throw StateError('Cannot validate key pair: This is a public-only key pair');
+      throw StateError('Cannot verify: public-only key pair');
     }
     
     try {
-      // Test message for validation (small, within RSA limits)
-      final testMessage = Uint8List.fromList('test'.codeUnits);
+      final Uint8List testMessage = Uint8List.fromList('test'.codeUnits);
+      final Uint8List encrypted = await _publicKey.encryptBytes(testMessage);
+      final Uint8List decrypted = await _privateKey!.decryptBytes(encrypted);
       
-      // Encrypt with public key, decrypt with private key
-      final encrypted = await _publicKey.encryptBytes(testMessage);
-      final decrypted = await _privateKey!.decryptBytes(encrypted);
-      
-      // Compare original and decrypted
       if (testMessage.length != decrypted.length) return false;
       for (int i = 0; i < testMessage.length; i++) {
         if (testMessage[i] != decrypted[i]) return false;
@@ -111,7 +107,6 @@ class EncryptionKeyPair implements IKeyPair<RsaOaepPrivateKey, RsaOaepPublicKey>
       
       return true;
     } catch (e) {
-      // Any crypto exception indicates mismatched keys
       return false;
     }
   }

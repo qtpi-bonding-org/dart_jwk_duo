@@ -281,6 +281,29 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
   // Static Utility Methods
   // ═══════════════════════════════════════════════════════════════════════════
 
+  /// Verifies a JWK Set is valid and keys work.
+  /// 
+  /// Performs full verification:
+  /// 1. Parses JSON and validates structure
+  /// 2. Imports keys via webcrypto
+  /// 3. Runs cryptographic roundtrips (sign/verify, encrypt/decrypt)
+  /// 
+  /// Returns the verified [KeyDuo] on success.
+  /// Throws [FormatException] if structure is invalid.
+  /// Throws [StateError] if keys don't have private material.
+  /// Throws [StateError] if cryptographic verification fails.
+  static Future<KeyDuo> verifyJwk(String jwkSetJson) async {
+    const KeyDuoSerializer serializer = KeyDuoSerializer();
+    final KeyDuo keyDuo = await serializer.importKeyDuo(jwkSetJson);
+    
+    final bool verified = await keyDuo.verify();
+    if (!verified) {
+      throw StateError('Key verification failed: cryptographic roundtrip test failed');
+    }
+    
+    return keyDuo;
+  }
+
   /// Extract signing public key hex from JWK Set JSON.
   /// 
   /// Returns 128-char hex string (x + y coordinates, no 04 prefix).

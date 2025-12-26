@@ -238,7 +238,7 @@ void main() {
           publicKey: keyPair.publicKey,
         );
         
-        final bool isValid = await signingKeyPair.validateKeyPair();
+        final bool isValid = await signingKeyPair.verifyKeyPair();
         expect(isValid, isTrue,
                reason: 'Properly paired keys should validate successfully');
         
@@ -248,7 +248,7 @@ void main() {
         );
         
         expect(
-          () => publicOnlyKeyPair.validateKeyPair(),
+          () => publicOnlyKeyPair.verifyKeyPair(),
           throwsA(isA<StateError>()),
           reason: 'Public-only key pair should throw StateError on validation',
         );
@@ -370,7 +370,7 @@ void main() {
           publicKey: keyPair.publicKey,
         );
         
-        final bool isValid = await encryptionKeyPair.validateKeyPair();
+        final bool isValid = await encryptionKeyPair.verifyKeyPair();
         expect(isValid, isTrue,
                reason: 'Properly paired keys should validate successfully');
         
@@ -379,7 +379,7 @@ void main() {
         );
         
         expect(
-          () => publicOnlyKeyPair.validateKeyPair(),
+          () => publicOnlyKeyPair.verifyKeyPair(),
           throwsA(isA<StateError>()),
           reason: 'Public-only key pair should throw StateError on validation',
         );

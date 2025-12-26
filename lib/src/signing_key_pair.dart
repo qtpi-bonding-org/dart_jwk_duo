@@ -113,13 +113,13 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
   }
 
   @override
-  Future<bool> validateKeyPair() async {
+  Future<bool> verifyKeyPair() async {
     if (_privateKey == null) {
-      throw StateError('Cannot validate: public-only key pair');
+      throw StateError('Cannot verify: public-only key pair');
     }
     
     try {
-      final Uint8List testMessage = Uint8List.fromList('dart-jwk-duo-validation'.codeUnits);
+      final Uint8List testMessage = Uint8List.fromList('dart-jwk-duo-verify'.codeUnits);
       final Uint8List signature = await signBytes(testMessage);
       return await verifyBytes(signature, testMessage);
     } catch (e) {

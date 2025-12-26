@@ -1,34 +1,39 @@
 import 'package:dart_jwk_duo/dart_jwk_duo.dart';
 
-/// Example demonstrating the optional key pair validation functionality.
+/// Example demonstrating the optional key pair verification functionality.
 Future<void> main() async {
-  print('Dart JWK Duo - Key Pair Validation Example');
+  print('Dart JWK Duo - Key Pair Verification Example');
   print('=====================================\n');
 
   // Generate a key duo
-  final generator = KeyDuoGenerator();
-  final keyDuo = await generator.generateKeyDuo();
+  const KeyDuoGenerator generator = KeyDuoGenerator();
+  final KeyDuo keyDuo = await generator.generateKeyDuo();
   
   print('✓ Generated key duo with signing and encryption key pairs');
 
-  // Validate signing key pair
-  print('\n1. Validating signing key pair...');
-  final signingValid = await keyDuo.signing.validateKeyPair();
+  // Verify signing key pair
+  print('\n1. Verifying signing key pair...');
+  final bool signingValid = await keyDuo.signingKeyPair.verifyKeyPair();
   print('   Result: ${signingValid ? "✓ Valid" : "✗ Invalid"}');
 
-  // Validate encryption key pair
-  print('\n2. Validating encryption key pair...');
-  final encryptionValid = await keyDuo.encryption.validateKeyPair();
+  // Verify encryption key pair
+  print('\n2. Verifying encryption key pair...');
+  final bool encryptionValid = await keyDuo.encryptionKeyPair.verifyKeyPair();
   print('   Result: ${encryptionValid ? "✓ Valid" : "✗ Invalid"}');
 
-  // Test public-only key pair validation (should throw StateError)
-  print('\n3. Testing public-only key pair validation...');
-  final publicOnlySigningPair = SigningKeyPair.publicOnly(
+  // Verify entire KeyDuo at once
+  print('\n3. Verifying entire KeyDuo...');
+  final bool duoValid = await keyDuo.verify();
+  print('   Result: ${duoValid ? "✓ Valid" : "✗ Invalid"}');
+
+  // Test public-only key pair verification (should throw StateError)
+  print('\n4. Testing public-only key pair verification...');
+  final SigningKeyPair publicOnlySigningPair = SigningKeyPair.publicOnly(
     publicKey: keyDuo.signing.publicKey,
   );
   
   try {
-    await publicOnlySigningPair.validateKeyPair();
+    await publicOnlySigningPair.verifyKeyPair();
     print('   Result: ✗ Unexpected success');
   } catch (e) {
     if (e is StateError) {
@@ -38,8 +43,8 @@ Future<void> main() async {
     }
   }
 
-  print('\n✓ All validation tests completed successfully!');
-  print('\nNote: Key pair validation is optional and should only be used');
+  print('\n✓ All verification tests completed successfully!');
+  print('\nNote: Key pair verification is optional and should only be used');
   print('when key pair integrity is uncertain, as it involves expensive');
   print('cryptographic operations.');
 }

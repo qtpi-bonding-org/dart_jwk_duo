@@ -36,9 +36,10 @@ abstract class IKeyPair<TPrivate, TPublic> {
   
   /// Validates that the private and public keys are mathematically paired.
   /// 
+  /// Performs a cryptographic roundtrip test to prove the keys work together.
   /// Returns `true` if keys are properly paired, `false` otherwise.
   /// Throws [StateError] if this is a public-only key pair.
-  Future<bool> validateKeyPair();
+  Future<bool> verifyKeyPair();
 }
 
 /// Interface for a container holding both signing and encryption key pairs.
