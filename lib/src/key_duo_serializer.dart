@@ -276,4 +276,46 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
       }
     }
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Static Utility Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Extract signing public key hex from JWK Set JSON.
+  /// 
+  /// Returns 128-char hex string (x + y coordinates, no 04 prefix).
+  /// This is the canonical way to derive an account identifier from a KeyDuo JWK.
+  /// 
+  /// The hex is derived by:
+  /// 1. Importing the JWK Set via webcrypto (validates the key)
+  /// 2. Exporting the signing public key as raw bytes
+  /// 3. Converting to lowercase hex (no 04 prefix)
+  /// 
+  /// This goes through the full webcrypto import/export path to ensure
+  /// the hex matches what [SigningKeyPair.exportPublicKeyHex] produces.
+  /// 
+  /// Throws [FormatException] if JWK is invalid or missing signing key.
+  static Future<String> extractSigningPublicKeyHex(String jwkSetJson) async {
+    // Reuse the existing import logic - this validates the JWK structure
+    // and imports via webcrypto
+    const serializer = KeyDuoSerializer();
+    
+    // Import as public-only to avoid requiring private key material
+    // (we only need the public key to get the hex)
+    KeyDuo keyDuo;
+    try {
+      // Try public-only first (works for both public and private JWKs
+      // since we strip private material during import)
+      keyDuo = await serializer._importKeyDuoFromMap(
+        jsonDecode(jwkSetJson) as Map<String, dynamic>,
+        requirePrivateKeys: false,
+      );
+    } catch (e) {
+      if (e is FormatException) rethrow;
+      throw FormatException('Invalid JWK Set: $e');
+    }
+    
+    // Use the concrete SigningKeyPair's exportPublicKeyHex()
+    return await keyDuo.signingKeyPair.exportPublicKeyHex();
+  }
 }
