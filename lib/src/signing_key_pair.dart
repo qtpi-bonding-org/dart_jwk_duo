@@ -112,18 +112,4 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
     return base64Url.encode(hash).replaceAll('=', '');
   }
 
-  @override
-  Future<bool> verifyKeyPair() async {
-    if (_privateKey == null) {
-      throw StateError('Cannot verify: public-only key pair');
-    }
-    
-    try {
-      final Uint8List testMessage = Uint8List.fromList('dart-jwk-duo-verify'.codeUnits);
-      final Uint8List signature = await signBytes(testMessage);
-      return await verifyBytes(signature, testMessage);
-    } catch (e) {
-      return false;
-    }
-  }
 }

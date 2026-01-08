@@ -5,25 +5,24 @@ Future<void> main() async {
   print('Dart JWK Duo - Key Pair Verification Example');
   print('=====================================\n');
 
-  // Generate a key duo
-  const KeyDuoGenerator generator = KeyDuoGenerator();
-  final KeyDuo keyDuo = await generator.generateKeyDuo();
+  // Generate a key duo using GenerationService
+  final KeyDuo keyDuo = await GenerationService.generateKeyDuo();
   
   print('✓ Generated key duo with signing and encryption key pairs');
 
-  // Verify signing key pair
+  // Verify signing key pair using VerificationService
   print('\n1. Verifying signing key pair...');
-  final bool signingValid = await keyDuo.signingKeyPair.verifyKeyPair();
+  final bool signingValid = await VerificationService.verifySigningKeyPair(keyDuo.signingKeyPair);
   print('   Result: ${signingValid ? "✓ Valid" : "✗ Invalid"}');
 
-  // Verify encryption key pair
+  // Verify encryption key pair using VerificationService
   print('\n2. Verifying encryption key pair...');
-  final bool encryptionValid = await keyDuo.encryptionKeyPair.verifyKeyPair();
+  final bool encryptionValid = await VerificationService.verifyEncryptionKeyPair(keyDuo.encryptionKeyPair);
   print('   Result: ${encryptionValid ? "✓ Valid" : "✗ Invalid"}');
 
-  // Verify entire KeyDuo at once
+  // Verify entire KeyDuo at once using VerificationService
   print('\n3. Verifying entire KeyDuo...');
-  final bool duoValid = await keyDuo.verify();
+  final bool duoValid = await VerificationService.verifyKeyDuo(keyDuo);
   print('   Result: ${duoValid ? "✓ Valid" : "✗ Invalid"}');
 
   // Test public-only key pair verification (should throw StateError)
@@ -33,7 +32,7 @@ Future<void> main() async {
   );
   
   try {
-    await publicOnlySigningPair.verifyKeyPair();
+    await VerificationService.verifySigningKeyPair(publicOnlySigningPair);
     print('   Result: ✗ Unexpected success');
   } catch (e) {
     if (e is StateError) {

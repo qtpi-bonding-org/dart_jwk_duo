@@ -9,6 +9,7 @@ import 'signing_key_pair.dart';
 import 'encryption_key_pair.dart';
 import 'constants.dart';
 import 'exported_jwk.dart';
+import 'verification_service.dart';
 
 /// Interface for serializing and deserializing KeyDuo instances.
 abstract class IKeyDuoSerializer {
@@ -296,7 +297,8 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     const KeyDuoSerializer serializer = KeyDuoSerializer();
     final KeyDuo keyDuo = await serializer.importKeyDuo(jwkSetJson);
     
-    final bool verified = await keyDuo.verify();
+    // Use VerificationService instead of removed KeyDuo.verify()
+    final bool verified = await VerificationService.verifyKeyDuo(keyDuo);
     if (!verified) {
       throw StateError('Key verification failed: cryptographic roundtrip test failed');
     }

@@ -1,6 +1,5 @@
 /// A thin, type-safe wrapper around package:webcrypto for managing
-/// a JWK Set containing exactly 2 RSA key pairs: one for signing (RSA-PSS-256)
-/// and one for encryption (RSA-OAEP-256).
+/// cryptographic key pairs with clean service-based architecture.
 library dart_jwk_duo;
 
 // Constants and configuration
@@ -15,9 +14,15 @@ export 'src/exported_jwk.dart';
 export 'src/signing_key_pair.dart';
 export 'src/encryption_key_pair.dart';
 
-// Key duo container and generation
+// Key containers
 export 'src/key_duo.dart';
-export 'src/key_duo_generator.dart';
+export 'src/symmetric_key.dart';
+
+// 4 Services - Clean separation of concerns
+export 'src/generation_service.dart';
+export 'src/validation_service.dart';
+export 'src/verification_service.dart';
+export 'src/crypto_service.dart';
 
 // Serialization
 export 'src/key_duo_serializer.dart';

@@ -8,7 +8,8 @@ import 'package:dart_jwk_duo/src/constants.dart';
 import 'package:dart_jwk_duo/src/signing_key_pair.dart';
 import 'package:dart_jwk_duo/src/encryption_key_pair.dart';
 import 'package:dart_jwk_duo/src/key_duo.dart';
-import 'package:dart_jwk_duo/src/key_duo_generator.dart';
+import 'package:dart_jwk_duo/src/generation_service.dart';
+import 'package:dart_jwk_duo/src/verification_service.dart';
 import 'package:dart_jwk_duo/src/key_duo_serializer.dart';
 import 'package:dart_jwk_duo/src/interfaces.dart';
 import 'package:webcrypto/webcrypto.dart';
@@ -238,7 +239,7 @@ void main() {
           publicKey: keyPair.publicKey,
         );
         
-        final bool isValid = await signingKeyPair.verifyKeyPair();
+        final bool isValid = await VerificationService.verifySigningKeyPair(signingKeyPair);
         expect(isValid, isTrue,
                reason: 'Properly paired keys should validate successfully');
         
@@ -248,7 +249,7 @@ void main() {
         );
         
         expect(
-          () => publicOnlyKeyPair.verifyKeyPair(),
+          () => VerificationService.verifySigningKeyPair(publicOnlyKeyPair),
           throwsA(isA<StateError>()),
           reason: 'Public-only key pair should throw StateError on validation',
         );
@@ -370,7 +371,7 @@ void main() {
           publicKey: keyPair.publicKey,
         );
         
-        final bool isValid = await encryptionKeyPair.verifyKeyPair();
+        final bool isValid = await VerificationService.verifyEncryptionKeyPair(encryptionKeyPair);
         expect(isValid, isTrue,
                reason: 'Properly paired keys should validate successfully');
         
@@ -379,7 +380,7 @@ void main() {
         );
         
         expect(
-          () => publicOnlyKeyPair.verifyKeyPair(),
+          () => VerificationService.verifyEncryptionKeyPair(publicOnlyKeyPair),
           throwsA(isA<StateError>()),
           reason: 'Public-only key pair should throw StateError on validation',
         );
@@ -388,13 +389,12 @@ void main() {
   });
 
 
-  group('KeyDuo and KeyDuoGenerator', () {
+  group('KeyDuo and GenerationService', () {
     test('property test - Key generation produces correct key types', () async {
       for (int i = 0; i < expensiveIterations; i++) {
-        final KeyDuoGenerator generator = KeyDuoGenerator(
+        final KeyDuo keyDuo = await GenerationService.generateKeyDuo(
           modulusLength: RsaParameters.modulusLength,
         );
-        final IKeyDuo keyDuo = await generator.generateKeyDuo();
         
         // Signing key must be ECDSA P-256
         expect(keyDuo.signing, isA<IKeyPair<EcdsaPrivateKey?, EcdsaPublicKey>>(),
@@ -434,8 +434,7 @@ void main() {
 
     test('property test - Key generation uses correct cryptographic parameters', () async {
       for (int i = 0; i < expensiveIterations; i++) {
-        final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
-        final IKeyDuo keyDuo = await generator.generateKeyDuo();
+        final KeyDuo keyDuo = await GenerationService.generateKeyDuo(modulusLength: RsaParameters.modulusLength);
         
         final ExportedJwk signingExport = await keyDuo.signing.exportPrivateKey();
         final ExportedJwk encryptionExport = await keyDuo.encryption.exportPrivateKey();
@@ -469,8 +468,7 @@ void main() {
 
     test('property test - Key duo contains both key pairs', () async {
       for (int i = 0; i < expensiveIterations; i++) {
-        final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
-        final IKeyDuo keyDuo = await generator.generateKeyDuo();
+        final KeyDuo keyDuo = await GenerationService.generateKeyDuo(modulusLength: RsaParameters.modulusLength);
         
         expect(keyDuo.signing, isNotNull,
                reason: 'Key duo must provide signing key pair');
@@ -507,8 +505,7 @@ void main() {
     });
 
     test('property test - KeyDuo signingKeyPair accessor', () async {
-      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
-      final KeyDuo keyDuo = await generator.generateKeyDuo() as KeyDuo;
+      final KeyDuo keyDuo = await GenerationService.generateKeyDuo(modulusLength: RsaParameters.modulusLength);
       
       // Access concrete SigningKeyPair for signing operations
       final SigningKeyPair signingKeyPair = keyDuo.signingKeyPair;
@@ -526,10 +523,9 @@ void main() {
 
   group('KeyDuoSerializer', () {
     test('property test - JWK Set export structure', () async {
-      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
       
       for (int i = 0; i < expensiveIterations; i++) {
-        final IKeyDuo keyDuo = await generator.generateKeyDuo();
+        final KeyDuo keyDuo = await GenerationService.generateKeyDuo(modulusLength: RsaParameters.modulusLength);
         final KeyDuoSerializer serializer = KeyDuoSerializer();
         
         final String jwkSetJson = await serializer.exportKeyDuo(keyDuo);
@@ -575,10 +571,9 @@ void main() {
     });
 
     test('property test - Private key export completeness', () async {
-      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
       
       for (int i = 0; i < expensiveIterations; i++) {
-        final IKeyDuo keyDuo = await generator.generateKeyDuo();
+        final KeyDuo keyDuo = await GenerationService.generateKeyDuo(modulusLength: RsaParameters.modulusLength);
         final KeyDuoSerializer serializer = KeyDuoSerializer();
         
         final String jwkSetJson = await serializer.exportKeyDuo(keyDuo);
@@ -611,16 +606,15 @@ void main() {
     });
 
     test('property test - JWK Set import validation', () async {
-      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
       final KeyDuoSerializer serializer = KeyDuoSerializer();
       
       for (int i = 0; i < expensiveIterations; i++) {
-        final IKeyDuo originalKeyDuo = await generator.generateKeyDuo();
+        final KeyDuo originalKeyDuo = await GenerationService.generateKeyDuo(modulusLength: RsaParameters.modulusLength);
         final String jwkSetJson = await serializer.exportKeyDuo(originalKeyDuo);
         
-        final IKeyDuo importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
+        final KeyDuo importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
         
-        expect(importedKeyDuo, isA<IKeyDuo>(),
+        expect(importedKeyDuo, isA<KeyDuo>(),
                reason: 'Import should return IKeyDuo instance');
         expect(importedKeyDuo.signing, isNotNull,
                reason: 'Imported key duo must have signing key pair');
@@ -666,14 +660,13 @@ void main() {
     });
 
     test('property test - Import-export round trip', () async {
-      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
       final KeyDuoSerializer serializer = KeyDuoSerializer();
       
       for (int i = 0; i < expensiveIterations; i++) {
-        final IKeyDuo originalKeyDuo = await generator.generateKeyDuo();
+        final KeyDuo originalKeyDuo = await GenerationService.generateKeyDuo(modulusLength: RsaParameters.modulusLength);
         
         final String jwkSetJson = await serializer.exportKeyDuo(originalKeyDuo);
-        final IKeyDuo importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
+        final KeyDuo importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
         final String reExportedJson = await serializer.exportKeyDuo(importedKeyDuo);
         
         final Map<String, dynamic> originalData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
@@ -704,11 +697,10 @@ void main() {
     });
 
     test('property test - Public key export and import', () async {
-      final KeyDuoGenerator generator = KeyDuoGenerator(modulusLength: RsaParameters.modulusLength);
       final KeyDuoSerializer serializer = KeyDuoSerializer();
       
       for (int i = 0; i < expensiveIterations; i++) {
-        final IKeyDuo originalKeyDuo = await generator.generateKeyDuo();
+        final KeyDuo originalKeyDuo = await GenerationService.generateKeyDuo();
         
         // Export public keys only
         final String publicJwkSetJson = await serializer.exportPublicKeyDuo(originalKeyDuo);

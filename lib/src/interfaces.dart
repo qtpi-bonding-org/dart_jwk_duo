@@ -33,13 +33,6 @@ abstract class IKeyPair<TPrivate, TPublic> {
   /// 
   /// Returns a base64url-encoded SHA-256 hash of the canonical public key.
   Future<String> calculateKeyId();
-  
-  /// Validates that the private and public keys are mathematically paired.
-  /// 
-  /// Performs a cryptographic roundtrip test to prove the keys work together.
-  /// Returns `true` if keys are properly paired, `false` otherwise.
-  /// Throws [StateError] if this is a public-only key pair.
-  Future<bool> verifyKeyPair();
 }
 
 /// Interface for a container holding both signing and encryption key pairs.

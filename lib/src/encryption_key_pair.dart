@@ -1,7 +1,6 @@
 /// Type-safe wrapper for RSA-OAEP encryption key pairs.
 library;
 
-import 'dart:typed_data';
 import 'package:webcrypto/webcrypto.dart';
 import 'interfaces.dart';
 import 'exported_jwk.dart';
@@ -87,27 +86,5 @@ class EncryptionKeyPair implements IKeyPair<RsaOaepPrivateKey, RsaOaepPublicKey>
     // The 'use' field (sig/enc) already distinguishes the key type.
     final Map<String, dynamic> publicJwkMap = await _publicKey.exportJsonWebKey();
     return calculateJwkThumbprint(publicJwkMap);
-  }
-
-  @override
-  Future<bool> verifyKeyPair() async {
-    if (_privateKey == null) {
-      throw StateError('Cannot verify: public-only key pair');
-    }
-    
-    try {
-      final Uint8List testMessage = Uint8List.fromList('test'.codeUnits);
-      final Uint8List encrypted = await _publicKey.encryptBytes(testMessage);
-      final Uint8List decrypted = await _privateKey!.decryptBytes(encrypted);
-      
-      if (testMessage.length != decrypted.length) return false;
-      for (int i = 0; i < testMessage.length; i++) {
-        if (testMessage[i] != decrypted[i]) return false;
-      }
-      
-      return true;
-    } catch (e) {
-      return false;
-    }
   }
 }
