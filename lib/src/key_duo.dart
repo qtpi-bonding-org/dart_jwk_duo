@@ -7,6 +7,7 @@ import 'package:webcrypto/webcrypto.dart';
 import 'interfaces.dart';
 import 'signing_key_pair.dart';
 import 'encryption_key_pair.dart';
+import 'crypto_service.dart';
 
 /// Container holding both signing and encryption key pairs.
 /// 
@@ -30,7 +31,7 @@ class KeyDuo implements IKeyDuo {
   IKeyPair<EcdsaPrivateKey?, EcdsaPublicKey> get signing => _signing;
 
   @override
-  IKeyPair<RsaOaepPrivateKey?, RsaOaepPublicKey> get encryption => _encryption;
+  IKeyPair<EcdhPrivateKey?, EcdhPublicKey> get encryption => _encryption;
   
   /// Access the concrete SigningKeyPair for signing operations.
   SigningKeyPair get signingKeyPair => _signing;
@@ -46,7 +47,7 @@ class KeyDuo implements IKeyDuo {
   /// 
   /// Returns encrypted bytes.
   Future<Uint8List> encrypt(Uint8List data) async {
-    return await _encryption.publicKey.encryptBytes(data);
+    return await CryptoService.encrypt(data, this);
   }
   
   /// Decrypt data with this KeyDuo's encryption key
@@ -58,11 +59,11 @@ class KeyDuo implements IKeyDuo {
   /// Returns decrypted bytes.
   /// Throws [StateError] if KeyDuo has no private key.
   Future<Uint8List> decrypt(Uint8List data) async {
-    final RsaOaepPrivateKey? privateKey = _encryption.privateKey;
+    final EcdhPrivateKey? privateKey = _encryption.privateKey;
     if (privateKey == null) {
       throw StateError('Cannot decrypt: KeyDuo has no private key');
     }
-    return await privateKey.decryptBytes(data);
+    return await CryptoService.decrypt(data, this);
   }
   
   /// Sign data with this KeyDuo's signing key

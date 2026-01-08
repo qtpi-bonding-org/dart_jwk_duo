@@ -45,8 +45,8 @@ abstract class IKeyDuo {
   /// Used for digital signatures and authentication.
   IKeyPair<EcdsaPrivateKey?, EcdsaPublicKey> get signing;
   
-  /// The encryption key pair (RSA-OAEP-256)
+  /// The encryption key pair (ECDH P-256)
   /// 
-  /// Used for data encryption and protection.
-  IKeyPair<RsaOaepPrivateKey?, RsaOaepPublicKey> get encryption;
+  /// Used for key agreement and hybrid encryption.
+  IKeyPair<EcdhPrivateKey?, EcdhPublicKey> get encryption;
 }

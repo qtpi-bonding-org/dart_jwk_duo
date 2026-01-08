@@ -5,10 +5,7 @@ library;
 class JwkKeyType {
   const JwkKeyType._();
   
-  /// RSA key type
-  static const String rsa = 'RSA';
-  
-  /// Elliptic Curve key type
+  /// Elliptic Curve key type (used for both signing and encryption)
   static const String ec = 'EC';
 }
 
@@ -19,8 +16,8 @@ class JwkAlgorithm {
   /// ECDSA using P-256 and SHA-256
   static const String es256 = 'ES256';
   
-  /// RSA-OAEP using SHA-256 and MGF1 with SHA-256
-  static const String rsaOaep256 = 'RSA-OAEP-256';
+  /// ECDH Ephemeral Static key agreement using Concat KDF and CEK wrapped with "A256KW"
+  static const String ecdhEs256 = 'ECDH-ES+A256KW';
 }
 
 /// JWK use (public key use) constants
@@ -53,7 +50,7 @@ class DefaultKeyIds {
   static const String encryption = 'master-encryption';
 }
 
-/// RSA cryptographic parameters
+/// RSA cryptographic parameters (legacy - kept for reference)
 class RsaParameters {
   const RsaParameters._();
   

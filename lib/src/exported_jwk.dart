@@ -62,13 +62,6 @@ class ExportedJwk {
         'x': _keyData['x'],
         'y': _keyData['y'],
       };
-    } else if (kty == JwkKeyType.rsa) {
-      // RSA key - copy modulus and exponent
-      publicKeyData = {
-        'kty': _keyData['kty'],
-        'n': _keyData['n'],
-        'e': _keyData['e'],
-      };
     } else {
       throw const FormatException('Unknown key type');
     }
@@ -98,13 +91,13 @@ class ExportedJwk {
       }
     }
     
-    // Validate RSA-OAEP-256 for encryption
-    if (alg == JwkAlgorithm.rsaOaep256) {
+    // Validate ECDH-ES+A256KW for encryption
+    if (alg == JwkAlgorithm.ecdhEs256) {
       if (use != JwkUse.encryption) {
-        throw ArgumentError('RSA-OAEP-256 algorithm must be used with "enc" use');
+        throw ArgumentError('ECDH-ES+A256KW algorithm must be used with "enc" use');
       }
-      if (kty != JwkKeyType.rsa) {
-        throw ArgumentError('RSA-OAEP-256 algorithm requires RSA key type');
+      if (kty != JwkKeyType.ec) {
+        throw ArgumentError('ECDH-ES+A256KW algorithm requires EC key type');
       }
     }
     
@@ -113,8 +106,8 @@ class ExportedJwk {
       throw ArgumentError('Signature use must be used with ES256 algorithm');
     }
     
-    if (use == JwkUse.encryption && alg != JwkAlgorithm.rsaOaep256) {
-      throw ArgumentError('Encryption use must be used with RSA-OAEP-256 algorithm');
+    if (use == JwkUse.encryption && alg != JwkAlgorithm.ecdhEs256) {
+      throw ArgumentError('Encryption use must be used with ECDH-ES+A256KW algorithm');
     }
   }
 }

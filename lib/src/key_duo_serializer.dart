@@ -136,9 +136,9 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
       requirePrivateKeys,
     );
 
-    // Import RSA encryption key
-    _validateRsaKey(encryptionKeyData, requirePrivateKey: requirePrivateKeys);
-    final EncryptionKeyPair encryptionKeyPair = await _importRsaEncryptionKey(
+    // Import ECDH encryption key
+    _validateEcdhKey(encryptionKeyData, requirePrivateKey: requirePrivateKeys);
+    final EncryptionKeyPair encryptionKeyPair = await _importEcdhEncryptionKey(
       encryptionKeyData,
       requirePrivateKeys,
     );
@@ -170,22 +170,20 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     }
   }
 
-  Future<EncryptionKeyPair> _importRsaEncryptionKey(
+  Future<EncryptionKeyPair> _importEcdhEncryptionKey(
     Map<String, dynamic> keyData,
     bool requirePrivateKey,
   ) async {
-    final RsaOaepPublicKey publicKey = await RsaOaepPublicKey.importJsonWebKey(
-      keyData,
-      Hash.sha256,
-    );
-
     if (requirePrivateKey) {
-      final RsaOaepPrivateKey privateKey = await RsaOaepPrivateKey.importJsonWebKey(
-        keyData,
-        Hash.sha256,
-      );
+      final EcdhPrivateKey privateKey = await EcdhPrivateKey.importJsonWebKey(
+        keyData, EllipticCurve.p256);
+      final Map<String, dynamic> publicKeyData = Map<String, dynamic>.from(keyData)..remove('d');
+      final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
+        publicKeyData, EllipticCurve.p256);
       return EncryptionKeyPair(privateKey: privateKey, publicKey: publicKey);
     } else {
+      final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
+        keyData, EllipticCurve.p256);
       return EncryptionKeyPair.publicOnly(publicKey: publicKey);
     }
   }

@@ -7,45 +7,45 @@ import 'exported_jwk.dart';
 import 'constants.dart';
 import 'jwk_thumbprint.dart';
 
-/// Type-safe wrapper for RSA-OAEP encryption key pairs.
+/// Type-safe wrapper for ECDH P-256 encryption key pairs.
 /// 
-/// Provides compile-time safety by restricting operations to encryption keys only.
-/// Hardcodes algorithm as "RSA-OAEP-256" and use as "enc" to prevent misuse.
-class EncryptionKeyPair implements IKeyPair<RsaOaepPrivateKey, RsaOaepPublicKey> {
-  final RsaOaepPrivateKey? _privateKey;
-  final RsaOaepPublicKey _publicKey;
+/// Provides compile-time safety by restricting operations to ECDH keys only.
+/// Uses ECDH-ES+A256KW algorithm for key agreement and hybrid encryption.
+class EncryptionKeyPair implements IKeyPair<EcdhPrivateKey, EcdhPublicKey> {
+  final EcdhPrivateKey? _privateKey;
+  final EcdhPublicKey _publicKey;
   
   /// Creates a new EncryptionKeyPair wrapper with both private and public keys.
   /// 
   /// **IMPORTANT**: The caller must ensure that [privateKey] and [publicKey] 
-  /// are mathematically paired (i.e., they belong to the same RSA key pair).
+  /// are mathematically paired (i.e., they belong to the same ECDH key pair).
   /// This constructor does not validate the key pair relationship due to 
   /// WebCrypto API limitations. Mismatched keys will result in cryptographic
-  /// failures during encryption/decryption operations.
+  /// failures during key agreement operations.
   /// 
-  /// Use [KeyDuoGenerator] to safely generate matched key pairs.
+  /// Use [GenerationService] to safely generate matched key pairs.
   /// 
-  /// [privateKey] - The RSA-OAEP private key
-  /// [publicKey] - The RSA-OAEP public key  
+  /// [privateKey] - The ECDH private key
+  /// [publicKey] - The ECDH public key  
   EncryptionKeyPair({
-    required RsaOaepPrivateKey privateKey,
-    required RsaOaepPublicKey publicKey,
+    required EcdhPrivateKey privateKey,
+    required EcdhPublicKey publicKey,
   }) : _privateKey = privateKey,
        _publicKey = publicKey;
 
   /// Creates a new public-only EncryptionKeyPair wrapper.
   /// 
-  /// [publicKey] - The RSA-OAEP public key  
+  /// [publicKey] - The ECDH public key  
   EncryptionKeyPair.publicOnly({
-    required RsaOaepPublicKey publicKey,
+    required EcdhPublicKey publicKey,
   }) : _privateKey = null,
        _publicKey = publicKey;
 
   @override
-  RsaOaepPrivateKey? get privateKey => _privateKey;
+  EcdhPrivateKey? get privateKey => _privateKey;
 
   @override
-  RsaOaepPublicKey get publicKey => _publicKey;
+  EcdhPublicKey get publicKey => _publicKey;
 
   @override
   bool get hasPrivateKey => _privateKey != null;
@@ -62,7 +62,7 @@ class EncryptionKeyPair implements IKeyPair<RsaOaepPrivateKey, RsaOaepPublicKey>
     return ExportedJwk(
       keyData: jwkMap,
       keyId: keyId,
-      alg: JwkAlgorithm.rsaOaep256,
+      alg: JwkAlgorithm.ecdhEs256,
       use: JwkUse.encryption,
     );
   }
@@ -75,7 +75,7 @@ class EncryptionKeyPair implements IKeyPair<RsaOaepPrivateKey, RsaOaepPublicKey>
     return ExportedJwk(
       keyData: jwkMap,
       keyId: keyId,
-      alg: JwkAlgorithm.rsaOaep256,
+      alg: JwkAlgorithm.ecdhEs256,
       use: JwkUse.encryption,
     );
   }

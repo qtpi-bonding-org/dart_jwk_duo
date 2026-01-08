@@ -104,23 +104,28 @@ class ValidationService {
     }
   }
 
-  /// Validate RSA key structure
+  /// Validate ECDH key structure
   /// 
-  /// Validates that the key has proper RSA-OAEP-256 structure with required fields.
+  /// Validates that the key has proper ECDH P-256 structure with required fields.
   /// 
   /// [keyData] - The JWK key object to validate
   /// [requirePrivateKey] - Whether private key material (d) is required
   /// 
   /// Throws [FormatException] if key structure is invalid.
-  static void validateRsaKey(Map<String, dynamic> keyData, {required bool requirePrivateKey}) {
+  static void validateEcdhKey(Map<String, dynamic> keyData, {required bool requirePrivateKey}) {
     final String? kty = keyData['kty'] as String?;
-    if (kty != JwkKeyType.rsa) {
-      throw const FormatException('Encryption key must have type "RSA"');
+    if (kty != JwkKeyType.ec) {
+      throw const FormatException('Encryption key must have type "EC"');
+    }
+
+    final String? crv = keyData['crv'] as String?;
+    if (crv != JwkCurve.p256) {
+      throw const FormatException('Encryption key must use curve "P-256"');
     }
 
     final String? alg = keyData['alg'] as String?;
-    if (alg != JwkAlgorithm.rsaOaep256) {
-      throw const FormatException('Encryption key must have algorithm "RSA-OAEP-256"');
+    if (alg != JwkAlgorithm.ecdhEs256) {
+      throw const FormatException('Encryption key must have algorithm "ECDH-ES+A256KW"');
     }
 
     final String? use = keyData['use'] as String?;
@@ -128,12 +133,12 @@ class ValidationService {
       throw const FormatException('Encryption key must have use "enc"');
     }
 
-    if (!keyData.containsKey('n') || !keyData.containsKey('e')) {
-      throw const FormatException('RSA key missing required n/e components');
+    if (!keyData.containsKey('x') || !keyData.containsKey('y')) {
+      throw const FormatException('EC key missing required x/y coordinates');
     }
 
     if (requirePrivateKey && !keyData.containsKey('d')) {
-      throw const FormatException('Private key must contain private exponent "d"');
+      throw const FormatException('Private key must contain private component "d"');
     }
 
     if (!keyData.containsKey('kid')) {
@@ -218,7 +223,7 @@ class ValidationService {
       if (use == JwkUse.signature) {
         validateEcdsaKey(keyData, requirePrivateKey: false);
       } else if (use == JwkUse.encryption) {
-        validateRsaKey(keyData, requirePrivateKey: false);
+        validateEcdhKey(keyData, requirePrivateKey: false);
       }
     }
   }
