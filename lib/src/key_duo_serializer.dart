@@ -151,12 +151,17 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     Map<String, dynamic> keyData,
     bool requirePrivateKey,
   ) async {
+    // Remove 'use' field to avoid WebCrypto compatibility issues
+    // Some WebCrypto implementations may have issues with 'use' field validation
+    final keyDataCopy = Map<String, dynamic>.from(keyData);
+    keyDataCopy.remove('use');
+    
     if (requirePrivateKey) {
       final EcdsaPrivateKey privateKey = await EcdsaPrivateKey.importJsonWebKey(
-        keyData,
+        keyDataCopy,
         EllipticCurve.p256,
       );
-      final Map<String, dynamic> publicKeyData = Map<String, dynamic>.from(keyData)..remove('d');
+      final Map<String, dynamic> publicKeyData = Map<String, dynamic>.from(keyDataCopy)..remove('d');
       final EcdsaPublicKey publicKey = await EcdsaPublicKey.importJsonWebKey(
         publicKeyData,
         EllipticCurve.p256,
@@ -164,7 +169,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
       return SigningKeyPair(privateKey: privateKey, publicKey: publicKey);
     } else {
       final EcdsaPublicKey publicKey = await EcdsaPublicKey.importJsonWebKey(
-        keyData,
+        keyDataCopy,
         EllipticCurve.p256,
       );
       return SigningKeyPair.publicOnly(publicKey: publicKey);
@@ -175,10 +180,21 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     Map<String, dynamic> keyData,
     bool requirePrivateKey,
   ) async {
-    // Remove 'use' field to avoid WebCrypto compatibility issues
-    // ECDH keys exported by WebCrypto omit 'use' field, but our JWKs include it
+    // Create a clean copy of keyData for WebCrypto compatibility
+    // Remove fields that can cause WebCrypto validation issues
     final keyDataCopy = Map<String, dynamic>.from(keyData);
+    
+    // Remove 'use' field - WebCrypto ECDH implementation has inconsistent behavior:
+    // - Export: omits 'use' field (sets to null)  
+    // - Import: validates 'use' field strictly
+    // Both native FFI and JS implementations handle this differently
     keyDataCopy.remove('use');
+    
+    // Remove 'alg' field as well since ECDH doesn't validate it anyway
+    keyDataCopy.remove('alg');
+    
+    // Remove 'kid' field which is not part of the core JWK spec for crypto operations
+    keyDataCopy.remove('kid');
     
     if (requirePrivateKey) {
       final EcdhPrivateKey privateKey = await EcdhPrivateKey.importJsonWebKey(
