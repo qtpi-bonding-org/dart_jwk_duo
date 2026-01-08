@@ -20,7 +20,7 @@ class KeyDuo implements IKeyDuo {
   /// Creates a new KeyDuo container.
   /// 
   /// [signing] - The signing key pair (ECDSA P-256)
-  /// [encryption] - The encryption key pair (RSA-OAEP-256)
+  /// [encryption] - The encryption key pair (ECDH P-256)
   const KeyDuo({
     required SigningKeyPair signing,
     required EncryptionKeyPair encryption,

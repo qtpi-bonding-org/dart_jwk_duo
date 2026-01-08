@@ -10,6 +10,7 @@ import 'encryption_key_pair.dart';
 import 'constants.dart';
 import 'exported_jwk.dart';
 import 'verification_service.dart';
+import 'validation_service.dart';
 
 /// Interface for serializing and deserializing KeyDuo instances.
 abstract class IKeyDuoSerializer {
@@ -76,7 +77,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
       throw const FormatException('Invalid JSON format');
     }
 
-    _validateNoPrivateKeyMaterial(jwkSet);
+    ValidationService.validateNoPrivateKeyMaterial(jwkSet);
     return _importKeyDuoFromMap(jwkSet, requirePrivateKeys: false);
   }
 
@@ -130,14 +131,14 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     }
 
     // Import ECDSA signing key
-    _validateEcdsaKey(signingKeyData, requirePrivateKey: requirePrivateKeys);
+    ValidationService.validateEcdsaKey(signingKeyData, requirePrivateKey: requirePrivateKeys);
     final SigningKeyPair signingKeyPair = await _importEcdsaSigningKey(
       signingKeyData,
       requirePrivateKeys,
     );
 
     // Import ECDH encryption key
-    _validateEcdhKey(encryptionKeyData, requirePrivateKey: requirePrivateKeys);
+    ValidationService.validateEcdhKey(encryptionKeyData, requirePrivateKey: requirePrivateKeys);
     final EncryptionKeyPair encryptionKeyPair = await _importEcdhEncryptionKey(
       encryptionKeyData,
       requirePrivateKeys,
@@ -185,94 +186,6 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
       final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
         keyData, EllipticCurve.p256);
       return EncryptionKeyPair.publicOnly(publicKey: publicKey);
-    }
-  }
-
-  void _validateEcdsaKey(Map<String, dynamic> keyData, {required bool requirePrivateKey}) {
-    final String? kty = keyData['kty'] as String?;
-    if (kty != JwkKeyType.ec) {
-      throw const FormatException('Signing key must have type "EC"');
-    }
-
-    final String? crv = keyData['crv'] as String?;
-    if (crv != JwkCurve.p256) {
-      throw const FormatException('Signing key must use curve "P-256"');
-    }
-
-    final String? alg = keyData['alg'] as String?;
-    if (alg != JwkAlgorithm.es256) {
-      throw const FormatException('Signing key must have algorithm "ES256"');
-    }
-
-    final String? use = keyData['use'] as String?;
-    if (use != JwkUse.signature) {
-      throw const FormatException('Signing key must have use "sig"');
-    }
-
-    if (!keyData.containsKey('x') || !keyData.containsKey('y')) {
-      throw const FormatException('EC key missing required x/y coordinates');
-    }
-
-    if (requirePrivateKey && !keyData.containsKey('d')) {
-      throw const FormatException('Private key must contain private component "d"');
-    }
-
-    if (!keyData.containsKey('kid')) {
-      throw const FormatException('Key must contain key identifier "kid"');
-    }
-  }
-
-  void _validateRsaKey(Map<String, dynamic> keyData, {required bool requirePrivateKey}) {
-    final String? kty = keyData['kty'] as String?;
-    if (kty != JwkKeyType.rsa) {
-      throw const FormatException('Encryption key must have type "RSA"');
-    }
-
-    final String? alg = keyData['alg'] as String?;
-    if (alg != JwkAlgorithm.rsaOaep256) {
-      throw const FormatException('Encryption key must have algorithm "RSA-OAEP-256"');
-    }
-
-    final String? use = keyData['use'] as String?;
-    if (use != JwkUse.encryption) {
-      throw const FormatException('Encryption key must have use "enc"');
-    }
-
-    if (!keyData.containsKey('n') || !keyData.containsKey('e')) {
-      throw const FormatException('RSA key missing required n/e components');
-    }
-
-    if (requirePrivateKey && !keyData.containsKey('d')) {
-      throw const FormatException('Private key must contain private exponent "d"');
-    }
-
-    if (!keyData.containsKey('kid')) {
-      throw const FormatException('Key must contain key identifier "kid"');
-    }
-  }
-
-  void _validateNoPrivateKeyMaterial(Map<String, dynamic> jwkSet) {
-    final dynamic keys = jwkSet['keys'];
-    if (keys is List) {
-      for (final dynamic key in keys) {
-        if (key is Map<String, dynamic>) {
-          const List<String> privateKeyComponents = ['d', 'p', 'q', 'dp', 'dq', 'qi', 'oth'];
-          final List<String> foundComponents = [];
-
-          for (final String component in privateKeyComponents) {
-            if (key.containsKey(component)) {
-              foundComponents.add(component);
-            }
-          }
-
-          if (foundComponents.isNotEmpty) {
-            throw FormatException(
-              'Private key material detected: ${foundComponents.join(', ')}. '
-              'Use importKeyDuo() for private keys.',
-            );
-          }
-        }
-      }
     }
   }
 

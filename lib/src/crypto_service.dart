@@ -3,7 +3,6 @@ library;
 
 import 'dart:convert';
 import 'dart:typed_data';
-import 'dart:math';
 import 'package:webcrypto/webcrypto.dart';
 import 'key_duo.dart';
 import 'symmetric_key.dart';
@@ -221,11 +220,8 @@ class CryptoService {
   
   /// Generate random 12-byte IV for AES-GCM
   static Uint8List _generateIV() {
-    final Random random = Random.secure();
     final Uint8List iv = Uint8List(12);
-    for (int i = 0; i < iv.length; i++) {
-      iv[i] = random.nextInt(256);
-    }
+    fillRandomBytes(iv);
     return iv;
   }
   

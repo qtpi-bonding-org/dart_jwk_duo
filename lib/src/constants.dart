@@ -50,19 +50,3 @@ class DefaultKeyIds {
   static const String encryption = 'master-encryption';
 }
 
-/// RSA cryptographic parameters (legacy - kept for reference)
-class RsaParameters {
-  const RsaParameters._();
-  
-  /// Default modulus length in bits (NIST recommendation for use until 2030)
-  static const int modulusLength = 2048;
-  
-  /// Enhanced security modulus length for long-term protection beyond 2030
-  static const int modulusLength3072 = 3072;
-  
-  /// High security modulus length for maximum protection
-  static const int modulusLength4096 = 4096;
-  
-  /// Public exponent (standard value)
-  static const int publicExponent = 65537;
-}

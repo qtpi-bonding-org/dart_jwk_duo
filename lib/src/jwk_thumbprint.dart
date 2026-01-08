@@ -3,84 +3,65 @@ library;
 
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:typed_data';
 import 'package:webcrypto/webcrypto.dart';
 
 /// Calculates RFC 7638 JWK thumbprint for a given JWK.
 /// 
 /// The thumbprint is calculated by:
 /// 1. Extracting only the required members for the key type
-/// 2. Validating that n and e are Base64Url-encoded strings (per JWK spec)
-/// 3. Sorting the members lexicographically by key name
-/// 4. Creating a canonical JSON representation
-/// 5. Computing SHA-256 hash of the UTF-8 bytes
-/// 6. Base64url encoding the hash (without padding)
+/// 2. Sorting the members lexicographically by key name
+/// 3. Creating a canonical JSON representation
+/// 4. Computing SHA-256 hash of the UTF-8 bytes
+/// 5. Base64url encoding the hash (without padding)
 /// 
-/// For RSA keys, the required members are: kty, n, e
-/// All values must be strings, with n and e being valid Base64Url format.
+/// For EC keys, the required members are: crv, kty, x, y
 /// 
 /// [jwk] - The JWK as a Map to calculate thumbprint for
 /// Returns the base64url-encoded SHA-256 hash of the canonical JWK
 /// Throws [ArgumentError] if validation fails or required members are missing/invalid
 Future<String> calculateJwkThumbprint(Map<String, dynamic> jwk) async {
   // Extract and validate key type first
-  final ktyValue = jwk['kty'];
+  final dynamic ktyValue = jwk['kty'];
   if (ktyValue == null) {
     throw ArgumentError('Missing required JWK member: kty is required');
   }
   if (ktyValue is! String) {
     throw ArgumentError('JWK member "kty" must be a String, got ${ktyValue.runtimeType}');
   }
-  if (ktyValue != 'RSA') {
-    throw ArgumentError('Only RSA keys are supported for thumbprint calculation');
+  if (ktyValue != 'EC') {
+    throw ArgumentError('Only EC keys are supported for thumbprint calculation');
   }
   
-  // Validate and extract required RSA components with strict type checking
-  final nValue = jwk['n'];
-  final eValue = jwk['e'];
+  // Extract required EC components
+  final dynamic crvValue = jwk['crv'];
+  final dynamic xValue = jwk['x'];
+  final dynamic yValue = jwk['y'];
   
   // Validate presence
-  if (nValue == null || eValue == null) {
-    throw ArgumentError('Missing required JWK member: n and e are required for RSA keys');
+  if (crvValue == null || xValue == null || yValue == null) {
+    throw ArgumentError('Missing required JWK member: crv, x, and y are required for EC keys');
   }
   
-  // Validate types - JWK spec requires n and e to be Base64Url-encoded strings
-  if (nValue is! String) {
-    throw ArgumentError('JWK member "n" must be a Base64Url-encoded String, got ${nValue.runtimeType}');
-  }
-  if (eValue is! String) {
-    throw ArgumentError('JWK member "e" must be a Base64Url-encoded String, got ${eValue.runtimeType}');
+  // Validate types
+  if (crvValue is! String || xValue is! String || yValue is! String) {
+    throw ArgumentError('JWK members crv, x, and y must be strings');
   }
   
-  // Validate Base64Url format (basic check for valid characters)
-  final base64UrlPattern = RegExp(r'^[A-Za-z0-9_-]+$');
-  if (!base64UrlPattern.hasMatch(nValue)) {
-    throw ArgumentError('JWK member "n" must be valid Base64Url format');
-  }
-  if (!base64UrlPattern.hasMatch(eValue)) {
-    throw ArgumentError('JWK member "e" must be valid Base64Url format');
-  }
-  
-  // Create required members map with validated values
-  final requiredMembers = <String, String>{
+  // Create RFC 7638 canonical JSON: {"crv":"P-256","kty":"EC","x":"...","y":"..."}
+  // Note: SplayTreeMap automatically sorts keys lexicographically
+  final SplayTreeMap<String, String> canonicalJwk = SplayTreeMap<String, String>.from({
+    'crv': crvValue,
     'kty': ktyValue,
-    'n': nValue,
-    'e': eValue,
-  };
+    'x': xValue,
+    'y': yValue,
+  });
   
-  // Create RFC 7638 compliant canonical JSON using SplayTreeMap for safety
-  // SplayTreeMap maintains lexicographic ordering and handles edge cases
-  final canonicalJwk = SplayTreeMap<String, String>.from(requiredMembers);
   final String canonicalJson = jsonEncode(canonicalJwk);
   
-  // Note: SplayTreeMap approach ensures RFC 7638 compliance by:
-  // 1. Automatic lexicographic ordering of member names
-  // 2. Proper JSON escaping handled by jsonEncode
-  // 3. Consistent output regardless of input order
-  // 4. Safe handling of edge cases in Base64 values
-  
   // Compute SHA-256 hash
-  final utf8Bytes = utf8.encode(canonicalJson);
-  final hashBytes = await Hash.sha256.digestBytes(utf8Bytes);
+  final Uint8List utf8Bytes = utf8.encode(canonicalJson);
+  final Uint8List hashBytes = await Hash.sha256.digestBytes(utf8Bytes);
   
   // Base64url encode without padding
   return base64Url.encode(hashBytes).replaceAll('=', '');

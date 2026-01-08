@@ -48,7 +48,7 @@ class ExportedJwk {
   /// Creates a public-only version of this ExportedJwk.
   /// 
   /// For EC keys: copies kty, crv, x, y
-  /// For RSA keys: copies kty, n, e
+  /// For all keys: copies kid, alg, use and other public metadata
   ExportedJwk toPublicOnly() {
     final String? kty = _keyData['kty'] as String?;
     

@@ -1,4 +1,4 @@
-/// Type-safe wrapper for RSA-OAEP encryption key pairs.
+/// Type-safe wrapper for ECDH P-256 encryption key pairs.
 library;
 
 import 'package:webcrypto/webcrypto.dart';
