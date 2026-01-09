@@ -29,6 +29,35 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
   }) : _privateKey = null,
        _publicKey = publicKey;
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Static Import Methods
+  // ═══════════════════════════════════════════════════════════════════════════
+
+  /// Import a public-only SigningKeyPair from a 128-char hex string.
+  /// 
+  /// The hex string should be 128 characters (64 bytes = x + y coordinates).
+  /// This is the inverse of [exportPublicKeyHex].
+  /// 
+  /// Use case: Verify signatures when you only have the public key hex.
+  static Future<SigningKeyPair> importPublicKeyHex(String hex) async {
+    if (hex.length != 128) {
+      throw ArgumentError('Public key hex must be 128 characters (got ${hex.length})');
+    }
+    
+    // Convert hex to bytes and add 04 prefix for uncompressed point format
+    final List<int> bytes = <int>[0x04]; // Uncompressed point prefix
+    for (int i = 0; i < hex.length; i += 2) {
+      bytes.add(int.parse(hex.substring(i, i + 2), radix: 16));
+    }
+    
+    final EcdsaPublicKey publicKey = await EcdsaPublicKey.importRawKey(
+      Uint8List.fromList(bytes),
+      EllipticCurve.p256,
+    );
+    
+    return SigningKeyPair.publicOnly(publicKey: publicKey);
+  }
+
   @override
   EcdsaPrivateKey? get privateKey => _privateKey;
 

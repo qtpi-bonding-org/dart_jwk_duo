@@ -151,27 +151,44 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     Map<String, dynamic> keyData,
     bool requirePrivateKey,
   ) async {
+    // DEBUG: Log original key data
+    print('🔍 ECDSA Import - Original keyData: ${keyData.keys.toList()}');
+    print('🔍 ECDSA Import - use field: ${keyData['use']}');
+    print('🔍 ECDSA Import - alg field: ${keyData['alg']}');
+    
+    // Create a clean copy for WebCrypto compatibility
+    final keyDataCopy = Map<String, dynamic>.from(keyData);
+    
     // Remove 'use' field to avoid WebCrypto compatibility issues
     // Some WebCrypto implementations may have issues with 'use' field validation
-    final keyDataCopy = Map<String, dynamic>.from(keyData);
     keyDataCopy.remove('use');
     
+    // Keep 'alg' and 'kid' fields - these are important for JWK standards compliance
+    print('🔍 ECDSA Import - Cleaned keyData: ${keyDataCopy.keys.toList()}');
+    
     if (requirePrivateKey) {
+      print('🔍 ECDSA Import - Importing private key...');
       final EcdsaPrivateKey privateKey = await EcdsaPrivateKey.importJsonWebKey(
         keyDataCopy,
         EllipticCurve.p256,
       );
+      print('🔍 ECDSA Import - Private key imported successfully');
+      
       final Map<String, dynamic> publicKeyData = Map<String, dynamic>.from(keyDataCopy)..remove('d');
+      print('🔍 ECDSA Import - Importing public key...');
       final EcdsaPublicKey publicKey = await EcdsaPublicKey.importJsonWebKey(
         publicKeyData,
         EllipticCurve.p256,
       );
+      print('🔍 ECDSA Import - Public key imported successfully');
       return SigningKeyPair(privateKey: privateKey, publicKey: publicKey);
     } else {
+      print('🔍 ECDSA Import - Importing public-only key...');
       final EcdsaPublicKey publicKey = await EcdsaPublicKey.importJsonWebKey(
         keyDataCopy,
         EllipticCurve.p256,
       );
+      print('🔍 ECDSA Import - Public-only key imported successfully');
       return SigningKeyPair.publicOnly(publicKey: publicKey);
     }
   }
@@ -180,8 +197,12 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     Map<String, dynamic> keyData,
     bool requirePrivateKey,
   ) async {
+    // DEBUG: Log original key data
+    print('🔍 ECDH Import - Original keyData: ${keyData.keys.toList()}');
+    print('🔍 ECDH Import - use field: ${keyData['use']}');
+    print('🔍 ECDH Import - alg field: ${keyData['alg']}');
+    
     // Create a clean copy of keyData for WebCrypto compatibility
-    // Remove fields that can cause WebCrypto validation issues
     final keyDataCopy = Map<String, dynamic>.from(keyData);
     
     // Remove 'use' field - WebCrypto ECDH implementation has inconsistent behavior:
@@ -190,23 +211,40 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     // Both native FFI and JS implementations handle this differently
     keyDataCopy.remove('use');
     
-    // Remove 'alg' field as well since ECDH doesn't validate it anyway
-    keyDataCopy.remove('alg');
-    
-    // Remove 'kid' field which is not part of the core JWK spec for crypto operations
-    keyDataCopy.remove('kid');
+    // Keep 'alg' and 'kid' fields - these are important for JWK standards compliance
+    // and don't cause WebCrypto import issues
+    print('🔍 ECDH Import - Cleaned keyData: ${keyDataCopy.keys.toList()}');
     
     if (requirePrivateKey) {
-      final EcdhPrivateKey privateKey = await EcdhPrivateKey.importJsonWebKey(
-        keyDataCopy, EllipticCurve.p256);
-      final Map<String, dynamic> publicKeyData = Map<String, dynamic>.from(keyDataCopy)..remove('d');
-      final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
-        publicKeyData, EllipticCurve.p256);
-      return EncryptionKeyPair(privateKey: privateKey, publicKey: publicKey);
+      print('🔍 ECDH Import - Importing private key...');
+      try {
+        final EcdhPrivateKey privateKey = await EcdhPrivateKey.importJsonWebKey(
+          keyDataCopy, EllipticCurve.p256);
+        print('🔍 ECDH Import - Private key imported successfully');
+        
+        final Map<String, dynamic> publicKeyData = Map<String, dynamic>.from(keyDataCopy)..remove('d');
+        print('🔍 ECDH Import - Importing public key...');
+        final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
+          publicKeyData, EllipticCurve.p256);
+        print('🔍 ECDH Import - Public key imported successfully');
+        return EncryptionKeyPair(privateKey: privateKey, publicKey: publicKey);
+      } catch (e) {
+        print('❌ ECDH Import - Error importing private key: $e');
+        print('❌ ECDH Import - KeyData that failed: $keyDataCopy');
+        rethrow;
+      }
     } else {
-      final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
-        keyDataCopy, EllipticCurve.p256);
-      return EncryptionKeyPair.publicOnly(publicKey: publicKey);
+      print('🔍 ECDH Import - Importing public-only key...');
+      try {
+        final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
+          keyDataCopy, EllipticCurve.p256);
+        print('🔍 ECDH Import - Public-only key imported successfully');
+        return EncryptionKeyPair.publicOnly(publicKey: publicKey);
+      } catch (e) {
+        print('❌ ECDH Import - Error importing public key: $e');
+        print('❌ ECDH Import - KeyData that failed: $keyDataCopy');
+        rethrow;
+      }
     }
   }
 

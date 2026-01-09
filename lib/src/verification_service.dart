@@ -14,6 +14,26 @@ import 'key_duo_serializer.dart';
 /// Performs actual cryptographic operations to verify that keys work correctly.
 /// Use ValidationService for structural checks before verification.
 class VerificationService {
+  /// Verify a signature using only a public key hex string.
+  /// 
+  /// Imports the public key from hex and verifies the signature in one call.
+  /// 
+  /// Parameters:
+  /// - [publicKeyHex]: 128-char hex string of the ECDSA P-256 public key
+  /// - [signature]: The signature bytes to verify
+  /// - [data]: The original data that was signed
+  /// 
+  /// Returns `true` if the signature is valid, `false` otherwise.
+  /// Throws [ArgumentError] if publicKeyHex is not 128 characters.
+  static Future<bool> verifySignatureWithPublicKeyHex({
+    required String publicKeyHex,
+    required Uint8List signature,
+    required Uint8List data,
+  }) async {
+    final SigningKeyPair keyPair = await SigningKeyPair.importPublicKeyHex(publicKeyHex);
+    return await keyPair.verifyBytes(signature, data);
+  }
+
   /// Verify KeyDuo works via crypto roundtrips
   /// 
   /// Tests both signing and encryption key pairs with actual crypto operations.

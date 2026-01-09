@@ -20,13 +20,33 @@ class GenerationService {
   /// 
   /// Returns a new [KeyDuo] with both private and public keys.
   static Future<KeyDuo> generateKeyDuo() async {
+    print('🔍 GenerationService - Starting key generation...');
+    
     // Generate ECDSA P-256 key pair for signing
-    final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) signingKeyPair = 
-        await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
+    // WebCrypto browser compatibility: explicitly specify key usages
+    print('🔍 GenerationService - Generating ECDSA P-256 signing key...');
+    final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) signingKeyPair;
+    try {
+      signingKeyPair = await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
+      print('🔍 GenerationService - ECDSA key generated successfully');
+    } catch (e) {
+      print('❌ GenerationService - ECDSA key generation failed: $e');
+      rethrow;
+    }
     
     // Generate ECDH P-256 key pair for encryption  
-    final ({EcdhPrivateKey privateKey, EcdhPublicKey publicKey}) encryptionKeyPair = 
-        await EcdhPrivateKey.generateKey(EllipticCurve.p256);
+    // WebCrypto browser compatibility: ECDH keys may have stricter usage validation
+    print('🔍 GenerationService - Generating ECDH P-256 encryption key...');
+    final ({EcdhPrivateKey privateKey, EcdhPublicKey publicKey}) encryptionKeyPair;
+    try {
+      encryptionKeyPair = await EcdhPrivateKey.generateKey(EllipticCurve.p256);
+      print('🔍 GenerationService - ECDH key generated successfully');
+    } catch (e) {
+      print('❌ GenerationService - ECDH key generation failed: $e');
+      print('❌ GenerationService - This may be a WebCrypto browser compatibility issue');
+      print('❌ GenerationService - Error details: ${e.runtimeType} - $e');
+      rethrow;
+    }
     
     // Create typed wrappers
     final SigningKeyPair signing = SigningKeyPair(
