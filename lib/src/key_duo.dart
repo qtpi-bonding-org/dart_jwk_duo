@@ -137,9 +137,13 @@ class KeyDuo implements IKeyDuo {
   /// 
   /// Returns `true` if signature is valid, `false` otherwise.
   Future<bool> verifySignatureString(String data, String signatureHex) async {
+    if (signatureHex.length % 2 != 0) {
+      throw ArgumentError('Signature hex must have even length (got ${signatureHex.length})');
+    }
+
     final Uint8List dataBytes = utf8.encode(data);
     final Uint8List signatureBytes = Uint8List(signatureHex.length ~/ 2);
-    
+
     for (int i = 0; i < signatureBytes.length; i++) {
       signatureBytes[i] = int.parse(signatureHex.substring(i * 2, i * 2 + 2), radix: 16);
     }

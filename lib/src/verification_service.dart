@@ -7,6 +7,7 @@ import 'key_duo.dart';
 import 'signing_key_pair.dart';
 import 'encryption_key_pair.dart';
 import 'symmetric_key.dart';
+import 'crypto_service.dart';
 import 'key_duo_serializer.dart';
 
 /// Service for cryptographic verification (roundtrip tests)
@@ -72,41 +73,37 @@ class VerificationService {
     }
   }
 
-  /// Verify encryption key pair works via ECDH + AES roundtrip
-  /// 
-  /// Tests ECDH key agreement and AES encryption/decryption.
-  /// 
+  /// Verify encryption key pair works via full encrypt/decrypt roundtrip
+  ///
+  /// Tests the complete ECDH + HKDF + AES-GCM pipeline by running
+  /// CryptoService.encrypt → CryptoService.decrypt, ensuring the entire
+  /// derivation and encryption path works end-to-end.
+  ///
   /// [keyPair] - The EncryptionKeyPair to verify
-  /// 
-  /// Returns `true` if ECDH + AES roundtrip succeeds, `false` otherwise.
+  ///
+  /// Returns `true` if encrypt/decrypt roundtrip succeeds, `false` otherwise.
   /// Throws [StateError] if key pair has no private key.
   static Future<bool> verifyEncryptionKeyPair(EncryptionKeyPair keyPair) async {
     if (!keyPair.hasPrivateKey) {
       throw StateError('Cannot verify: public-only key pair');
     }
-    
+
     try {
-      final Uint8List testMessage = Uint8List.fromList('test'.codeUnits);
-      
-      // Generate ephemeral key pair for testing
-      final ({EcdhPrivateKey privateKey, EcdhPublicKey publicKey}) ephemeralKeyPair = 
-          await EcdhPrivateKey.generateKey(EllipticCurve.p256);
-      
-      // Perform ECDH key agreement (test that it works)
-      final Uint8List sharedSecret = await ephemeralKeyPair.privateKey.deriveBits(
-        256, keyPair.publicKey);
-      
-      // Verify we got a valid shared secret
-      if (sharedSecret.length != 32) return false;
-      
-      // Derive AES key (simplified version for testing)
-      final AesGcmSecretKey aesKey = await AesGcmSecretKey.generateKey(256);
-      
-      // Test AES encrypt/decrypt
-      final Uint8List iv = Uint8List(12);
-      final Uint8List encrypted = await aesKey.encryptBytes(testMessage, iv);
-      final Uint8List decrypted = await aesKey.decryptBytes(encrypted, iv);
-      
+      final Uint8List testMessage = Uint8List.fromList('dart-jwk-duo-verify-enc'.codeUnits);
+
+      // Build a temporary KeyDuo to test through the real CryptoService path.
+      final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) tempSigningKey =
+          await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
+      final SigningKeyPair tempSigning = SigningKeyPair(
+        privateKey: tempSigningKey.privateKey,
+        publicKey: tempSigningKey.publicKey,
+      );
+      final KeyDuo tempKeyDuo = KeyDuo(signing: tempSigning, encryption: keyPair);
+
+      // Run the full CryptoService encrypt/decrypt roundtrip
+      final Uint8List encrypted = await CryptoService.encrypt(testMessage, tempKeyDuo);
+      final Uint8List decrypted = await CryptoService.decrypt(encrypted, tempKeyDuo);
+
       if (testMessage.length != decrypted.length) return false;
       for (int i = 0; i < testMessage.length; i++) {
         if (testMessage[i] != decrypted[i]) return false;

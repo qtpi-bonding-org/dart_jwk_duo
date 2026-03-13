@@ -35,21 +35,24 @@ class CryptoService {
     final Uint8List sharedSecret = await ephemeralKeyPair.privateKey.deriveBits(
       256, keyDuo.encryption.publicKey);
     
-    // 3. Derive AES key from shared secret
-    final AesGcmSecretKey aesKey = await _deriveAesKey(sharedSecret);
-    
-    // 4. Generate random IV for AES-GCM
+    // 3. Generate random HKDF salt
+    final Uint8List salt = _generateSalt();
+
+    // 4. Derive AES key from shared secret with random salt
+    final AesGcmSecretKey aesKey = await _deriveAesKey(sharedSecret, salt);
+
+    // 5. Generate random IV for AES-GCM
     final Uint8List iv = _generateIV();
-    
-    // 5. Encrypt data with AES-GCM
+
+    // 6. Encrypt data with AES-GCM
     final Uint8List ciphertext = await aesKey.encryptBytes(data, iv);
-    
-    // 6. Export ephemeral public key
+
+    // 7. Export ephemeral public key
     final Map<String, dynamic> ephemeralPublicJwk = await ephemeralKeyPair.publicKey.exportJsonWebKey();
     final Uint8List ephemeralPublicKeyBytes = utf8.encode(jsonEncode(ephemeralPublicJwk));
-    
-    // 7. Combine: ephemeral_key_length(4) + ephemeral_key + iv(12) + ciphertext
-    final Uint8List result = Uint8List(4 + ephemeralPublicKeyBytes.length + iv.length + ciphertext.length);
+
+    // 8. Combine: ephemeral_key_length(4) + ephemeral_key + salt(32) + iv(12) + ciphertext
+    final Uint8List result = Uint8List(4 + ephemeralPublicKeyBytes.length + salt.length + iv.length + ciphertext.length);
     int offset = 0;
     
     // Write ephemeral key length (4 bytes, big-endian)
@@ -59,7 +62,11 @@ class CryptoService {
     // Write ephemeral public key
     result.setRange(offset, offset + ephemeralPublicKeyBytes.length, ephemeralPublicKeyBytes);
     offset += ephemeralPublicKeyBytes.length;
-    
+
+    // Write salt
+    result.setRange(offset, offset + salt.length, salt);
+    offset += salt.length;
+
     // Write IV
     result.setRange(offset, offset + iv.length, iv);
     offset += iv.length;
@@ -83,42 +90,53 @@ class CryptoService {
       throw StateError('Cannot decrypt: KeyDuo has no private key');
     }
     
-    if (data.length < 16) { // Minimum: 4 + 1 + 12 = 17 bytes
+    // Minimum: 4 (key len) + 1 (key) + 32 (salt) + 12 (iv) = 49 bytes
+    if (data.length < 49) {
       throw ArgumentError('Encrypted data too short');
     }
-    
+
     int offset = 0;
-    
+
     // 1. Read ephemeral key length
     final int ephemeralKeyLength = _bytesToUint32(data.sublist(offset, offset + 4));
     offset += 4;
-    
-    if (data.length < offset + ephemeralKeyLength + 12) {
+
+    if (data.length < offset + ephemeralKeyLength + 32 + 12) {
       throw ArgumentError('Invalid encrypted data format');
     }
-    
+
     // 2. Read and import ephemeral public key
     final Uint8List ephemeralKeyBytes = data.sublist(offset, offset + ephemeralKeyLength);
     offset += ephemeralKeyLength;
-    
+
     final Map<String, dynamic> ephemeralPublicJwk = jsonDecode(utf8.decode(ephemeralKeyBytes)) as Map<String, dynamic>;
+
+    // Validate ephemeral key structure before importing
+    if (ephemeralPublicJwk['kty'] != 'EC' || ephemeralPublicJwk['crv'] != 'P-256') {
+      throw ArgumentError('Ephemeral key must be EC P-256');
+    }
+
     final EcdhPublicKey ephemeralPublicKey = await EcdhPublicKey.importJsonWebKey(
       ephemeralPublicJwk, EllipticCurve.p256);
-    
-    // 3. Read IV
+
+    // 3. Read salt
+    final Uint8List salt = data.sublist(offset, offset + 32);
+    offset += 32;
+
+    // 4. Read IV
     final Uint8List iv = data.sublist(offset, offset + 12);
     offset += 12;
-    
-    // 4. Read ciphertext
+
+    // 5. Read ciphertext
     final Uint8List ciphertext = data.sublist(offset);
-    
-    // 5. Perform ECDH key agreement
+
+    // 6. Perform ECDH key agreement
     final Uint8List sharedSecret = await privateKey.deriveBits(256, ephemeralPublicKey);
-    
-    // 6. Derive AES key from shared secret
-    final AesGcmSecretKey aesKey = await _deriveAesKey(sharedSecret);
-    
-    // 7. Decrypt with AES-GCM
+
+    // 7. Derive AES key from shared secret with salt
+    final AesGcmSecretKey aesKey = await _deriveAesKey(sharedSecret, salt);
+
+    // 8. Decrypt with AES-GCM
     return await aesKey.decryptBytes(ciphertext, iv);
   }
   
@@ -188,13 +206,17 @@ class CryptoService {
   
   /// Verify hex signature
   static Future<bool> verifySignatureString(String data, String signatureHex, KeyDuo keyDuo) async {
+    if (signatureHex.length % 2 != 0) {
+      throw ArgumentError('Signature hex must have even length (got ${signatureHex.length})');
+    }
+
     final Uint8List dataBytes = utf8.encode(data);
     final Uint8List signatureBytes = Uint8List(signatureHex.length ~/ 2);
-    
+
     for (int i = 0; i < signatureBytes.length; i++) {
       signatureBytes[i] = int.parse(signatureHex.substring(i * 2, i * 2 + 2), radix: 16);
     }
-    
+
     return await verifySignature(dataBytes, signatureBytes, keyDuo);
   }
   
@@ -202,22 +224,28 @@ class CryptoService {
   // Private Helper Methods
   // ═══════════════════════════════════════════════════════════════════════════
   
-  /// Derive AES-256-GCM key from shared secret using HKDF
-  static Future<AesGcmSecretKey> _deriveAesKey(Uint8List sharedSecret) async {
-    // Use HKDF with SHA-256 to derive AES key
-    // Info parameter for domain separation
+  /// Derive AES-256-GCM key from shared secret using HKDF with random salt
+  static Future<AesGcmSecretKey> _deriveAesKey(Uint8List sharedSecret, Uint8List salt) async {
+    // Domain separation info for HKDF
     final Uint8List info = utf8.encode('dart-jwk-duo-ecdh-aes');
-    
+
     // Import shared secret as HKDF key
     final HkdfSecretKey hkdfKey = await HkdfSecretKey.importRawKey(sharedSecret);
-    
-    // Derive 256 bits (32 bytes) for AES-256
-    final Uint8List derivedKey = await hkdfKey.deriveBits(256, Hash.sha256, Uint8List(0), info);
-    
+
+    // Derive 256 bits (32 bytes) for AES-256 using the provided random salt
+    final Uint8List derivedKey = await hkdfKey.deriveBits(256, Hash.sha256, salt, info);
+
     // Import derived key as AES-GCM key
     return await AesGcmSecretKey.importRawKey(derivedKey);
   }
-  
+
+  /// Generate random 32-byte salt for HKDF
+  static Uint8List _generateSalt() {
+    final Uint8List salt = Uint8List(32);
+    fillRandomBytes(salt);
+    return salt;
+  }
+
   /// Generate random 12-byte IV for AES-GCM
   static Uint8List _generateIV() {
     final Uint8List iv = Uint8List(12);
