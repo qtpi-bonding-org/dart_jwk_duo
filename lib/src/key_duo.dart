@@ -4,10 +4,12 @@ library;
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:webcrypto/webcrypto.dart';
+import 'constants.dart';
 import 'interfaces.dart';
 import 'signing_key_pair.dart';
 import 'encryption_key_pair.dart';
 import 'crypto_service.dart';
+import 'validation_service.dart';
 
 /// Container holding both signing and encryption key pairs.
 /// 
@@ -137,17 +139,9 @@ class KeyDuo implements IKeyDuo {
   /// 
   /// Returns `true` if signature is valid, `false` otherwise.
   Future<bool> verifySignatureString(String data, String signatureHex) async {
-    if (signatureHex.length % 2 != 0) {
-      throw ArgumentError('Signature hex must have even length (got ${signatureHex.length})');
-    }
-
+    final Uint8List signatureBytes = ValidationService.parseValidatedHex(
+      signatureHex, expectedLength: CryptoSizes.ecdsaP256SignatureLength * 2);
     final Uint8List dataBytes = utf8.encode(data);
-    final Uint8List signatureBytes = Uint8List(signatureHex.length ~/ 2);
-
-    for (int i = 0; i < signatureBytes.length; i++) {
-      signatureBytes[i] = int.parse(signatureHex.substring(i * 2, i * 2 + 2), radix: 16);
-    }
-    
     return await verifySignature(dataBytes, signatureBytes);
   }
 }

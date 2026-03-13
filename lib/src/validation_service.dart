@@ -2,6 +2,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:typed_data';
 import 'constants.dart';
 
 /// Service for structural JWK validation (format checks only)
@@ -164,13 +165,58 @@ class ValidationService {
     }
   }
 
+  /// Extract only public EC key fields from a raw JWK map.
+  ///
+  /// Returns a new map containing only the public fields: kty, crv, x, y,
+  /// alg, use, kid. Private key material is never copied.
+  ///
+  /// [key] - The raw JWK key map (may contain private fields)
+  ///
+  /// Returns a new map with only public fields.
+  static Map<String, dynamic> extractPublicKeyFields(Map<String, dynamic> key) {
+    return <String, dynamic>{
+      if (key.containsKey('kty')) 'kty': key['kty'],
+      if (key.containsKey('crv')) 'crv': key['crv'],
+      if (key.containsKey('x')) 'x': key['x'],
+      if (key.containsKey('y')) 'y': key['y'],
+      if (key.containsKey('alg')) 'alg': key['alg'],
+      if (key.containsKey('use')) 'use': key['use'],
+      if (key.containsKey('kid')) 'kid': key['kid'],
+    };
+  }
+
+  /// Extract public-only JWK Set from a JWK Set that may contain private keys.
+  ///
+  /// Returns a new JWK Set map where each key contains only public fields.
+  ///
+  /// [jwkSet] - The JWK Set map (may contain private key material)
+  ///
+  /// Returns a new JWK Set map with only public key fields.
+  /// Throws [FormatException] if the JWK Set structure is invalid.
+  static Map<String, dynamic> extractPublicKeySet(Map<String, dynamic> jwkSet) {
+    final dynamic keys = jwkSet['keys'];
+    if (keys is! List) {
+      throw const FormatException('JWK Set "keys" must be an array');
+    }
+
+    final List<Map<String, dynamic>> publicKeys = <Map<String, dynamic>>[];
+    for (final dynamic key in keys) {
+      if (key is! Map<String, dynamic>) {
+        throw const FormatException('Each key in JWK Set must be an object');
+      }
+      publicKeys.add(extractPublicKeyFields(key));
+    }
+
+    return <String, dynamic>{'keys': publicKeys};
+  }
+
   /// Validate no private key material in JWK Set
-  /// 
+  ///
   /// Ensures that a JWK Set intended for public use contains no private key material.
   /// Useful when importing public-only KeyDuo to prevent accidental private key exposure.
-  /// 
+  ///
   /// [jwkSet] - The JWK Set to validate
-  /// 
+  ///
   /// Throws [FormatException] if private key material is found.
   static void validateNoPrivateKeyMaterial(Map<String, dynamic> jwkSet) {
     final dynamic keys = jwkSet['keys'];
@@ -244,5 +290,32 @@ class ValidationService {
     }
 
     validateSymmetricKeyJwk(keyData);
+  }
+
+  /// Validate and parse a hex string into bytes.
+  ///
+  /// Checks that the string has the expected length and only contains
+  /// valid hex characters ([0-9a-fA-F]).
+  ///
+  /// [hex] - The hex string to validate
+  /// [expectedLength] - The exact number of hex characters expected
+  ///
+  /// Returns the parsed bytes as [Uint8List].
+  /// Throws [ArgumentError] if validation fails.
+  static Uint8List parseValidatedHex(String hex, {required int expectedLength}) {
+    if (hex.length != expectedLength) {
+      throw ArgumentError('Hex must be $expectedLength characters (got ${hex.length})');
+    }
+
+    final RegExp hexPattern = RegExp(r'^[0-9a-fA-F]+$');
+    if (!hexPattern.hasMatch(hex)) {
+      throw ArgumentError('Hex contains invalid characters');
+    }
+
+    final Uint8List bytes = Uint8List(hex.length ~/ 2);
+    for (int i = 0; i < bytes.length; i++) {
+      bytes[i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
+    }
+    return bytes;
   }
 }

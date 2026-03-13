@@ -4,8 +4,10 @@ library;
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:webcrypto/webcrypto.dart';
+import 'constants.dart';
 import 'key_duo.dart';
 import 'symmetric_key.dart';
+import 'validation_service.dart';
 
 /// Simple cryptographic operations service - building blocks only
 /// 
@@ -90,18 +92,22 @@ class CryptoService {
       throw StateError('Cannot decrypt: KeyDuo has no private key');
     }
     
-    // Minimum: 4 (key len) + 1 (key) + 32 (salt) + 12 (iv) = 49 bytes
-    if (data.length < 49) {
+    final int minLength = CryptoSizes.lengthPrefixSize + 1 + CryptoSizes.hkdfSaltLength + CryptoSizes.aesGcmIvLength;
+    if (data.length < minLength) {
       throw ArgumentError('Encrypted data too short');
     }
 
     int offset = 0;
 
     // 1. Read ephemeral key length
-    final int ephemeralKeyLength = _bytesToUint32(data.sublist(offset, offset + 4));
-    offset += 4;
+    final int ephemeralKeyLength = _bytesToUint32(data.sublist(offset, offset + CryptoSizes.lengthPrefixSize));
+    offset += CryptoSizes.lengthPrefixSize;
 
-    if (data.length < offset + ephemeralKeyLength + 32 + 12) {
+    if (ephemeralKeyLength > CryptoSizes.maxEphemeralKeyLength) {
+      throw ArgumentError('Ephemeral key too large');
+    }
+
+    if (data.length < offset + ephemeralKeyLength + CryptoSizes.hkdfSaltLength + CryptoSizes.aesGcmIvLength) {
       throw ArgumentError('Invalid encrypted data format');
     }
 
@@ -112,7 +118,7 @@ class CryptoService {
     final Map<String, dynamic> ephemeralPublicJwk = jsonDecode(utf8.decode(ephemeralKeyBytes)) as Map<String, dynamic>;
 
     // Validate ephemeral key structure before importing
-    if (ephemeralPublicJwk['kty'] != 'EC' || ephemeralPublicJwk['crv'] != 'P-256') {
+    if (ephemeralPublicJwk['kty'] != JwkKeyType.ec || ephemeralPublicJwk['crv'] != JwkCurve.p256) {
       throw ArgumentError('Ephemeral key must be EC P-256');
     }
 
@@ -120,12 +126,12 @@ class CryptoService {
       ephemeralPublicJwk, EllipticCurve.p256);
 
     // 3. Read salt
-    final Uint8List salt = data.sublist(offset, offset + 32);
-    offset += 32;
+    final Uint8List salt = data.sublist(offset, offset + CryptoSizes.hkdfSaltLength);
+    offset += CryptoSizes.hkdfSaltLength;
 
     // 4. Read IV
-    final Uint8List iv = data.sublist(offset, offset + 12);
-    offset += 12;
+    final Uint8List iv = data.sublist(offset, offset + CryptoSizes.aesGcmIvLength);
+    offset += CryptoSizes.aesGcmIvLength;
 
     // 5. Read ciphertext
     final Uint8List ciphertext = data.sublist(offset);
@@ -169,12 +175,12 @@ class CryptoService {
   
   /// Decrypt data with symmetric key
   static Future<Uint8List> decryptSymmetric(Uint8List data, SymmetricKey symmetricKey) async {
-    if (data.length < 12) {
-      throw ArgumentError('Ciphertext too short to contain IV (minimum 12 bytes)');
+    if (data.length < CryptoSizes.aesGcmIvLength) {
+      throw ArgumentError('Ciphertext too short to contain IV');
     }
-    
-    final Uint8List iv = data.sublist(0, 12);
-    final Uint8List ciphertext = data.sublist(12);
+
+    final Uint8List iv = data.sublist(0, CryptoSizes.aesGcmIvLength);
+    final Uint8List ciphertext = data.sublist(CryptoSizes.aesGcmIvLength);
     
     return await symmetricKey.internal.decryptBytes(ciphertext, iv);
   }
@@ -206,17 +212,9 @@ class CryptoService {
   
   /// Verify hex signature
   static Future<bool> verifySignatureString(String data, String signatureHex, KeyDuo keyDuo) async {
-    if (signatureHex.length % 2 != 0) {
-      throw ArgumentError('Signature hex must have even length (got ${signatureHex.length})');
-    }
-
+    final Uint8List signatureBytes = ValidationService.parseValidatedHex(
+      signatureHex, expectedLength: CryptoSizes.ecdsaP256SignatureLength * 2);
     final Uint8List dataBytes = utf8.encode(data);
-    final Uint8List signatureBytes = Uint8List(signatureHex.length ~/ 2);
-
-    for (int i = 0; i < signatureBytes.length; i++) {
-      signatureBytes[i] = int.parse(signatureHex.substring(i * 2, i * 2 + 2), radix: 16);
-    }
-
     return await verifySignature(dataBytes, signatureBytes, keyDuo);
   }
   
@@ -239,16 +237,16 @@ class CryptoService {
     return await AesGcmSecretKey.importRawKey(derivedKey);
   }
 
-  /// Generate random 32-byte salt for HKDF
+  /// Generate random HKDF salt
   static Uint8List _generateSalt() {
-    final Uint8List salt = Uint8List(32);
+    final Uint8List salt = Uint8List(CryptoSizes.hkdfSaltLength);
     fillRandomBytes(salt);
     return salt;
   }
 
-  /// Generate random 12-byte IV for AES-GCM
+  /// Generate random AES-GCM IV
   static Uint8List _generateIV() {
-    final Uint8List iv = Uint8List(12);
+    final Uint8List iv = Uint8List(CryptoSizes.aesGcmIvLength);
     fillRandomBytes(iv);
     return iv;
   }

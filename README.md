@@ -132,6 +132,11 @@ final encrypted = await symmetricKey.internal.encryptBytes(data, iv);
 final decrypted = await symmetricKey.internal.decryptBytes(encrypted, iv);
 ```
 
+## Security Notes
+
+- **AES-GCM nonce limit**: Symmetric encryption uses random 96-bit IVs. Per NIST guidelines, do not exceed ~2^32 encryptions per key to keep collision probability negligible. Rotate keys before this limit.
+- **Exported key strings**: Dart strings are immutable and cannot be zeroed from memory. Minimize the lifetime of strings returned by `exportKeyDuo()` and `SymmetricKey.toJwk()`.
+
 ## Requirements
 
 - Flutter SDK >=3.0.0

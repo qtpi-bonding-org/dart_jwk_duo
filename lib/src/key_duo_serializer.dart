@@ -77,8 +77,8 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
       throw const FormatException('Invalid JSON format');
     }
 
-    ValidationService.validateNoPrivateKeyMaterial(jwkSet);
-    return _importKeyDuoFromMap(jwkSet, requirePrivateKeys: false);
+    final Map<String, dynamic> publicJwkSet = ValidationService.extractPublicKeySet(jwkSet);
+    return _importKeyDuoFromMap(publicJwkSet, requirePrivateKeys: false);
   }
 
   Future<KeyDuo> _importKeyDuoFromMap(
@@ -263,18 +263,15 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
   /// 
   /// Throws [FormatException] if JWK is invalid or missing signing key.
   static Future<String> extractSigningPublicKeyHex(String jwkSetJson) async {
-    // Reuse the existing import logic - this validates the JWK structure
-    // and imports via webcrypto
+    // Extract only public fields — never hold private key material in memory
+    final Map<String, dynamic> jwkSet = jsonDecode(jwkSetJson) as Map<String, dynamic>;
+    final Map<String, dynamic> publicJwkSet = ValidationService.extractPublicKeySet(jwkSet);
+
     const serializer = KeyDuoSerializer();
-    
-    // Import as public-only to avoid requiring private key material
-    // (we only need the public key to get the hex)
-    KeyDuo keyDuo;
+    final KeyDuo keyDuo;
     try {
-      // Try public-only first (works for both public and private JWKs
-      // since we strip private material during import)
       keyDuo = await serializer._importKeyDuoFromMap(
-        jsonDecode(jwkSetJson) as Map<String, dynamic>,
+        publicJwkSet,
         requirePrivateKeys: false,
       );
     } catch (e) {

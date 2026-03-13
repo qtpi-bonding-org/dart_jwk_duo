@@ -3,6 +3,7 @@ library;
 
 import 'dart:typed_data';
 import 'package:webcrypto/webcrypto.dart';
+import 'constants.dart';
 import 'key_duo.dart';
 import 'signing_key_pair.dart';
 import 'encryption_key_pair.dart';
@@ -124,7 +125,8 @@ class VerificationService {
   static Future<bool> verifySymmetricKey(SymmetricKey symmetricKey) async {
     try {
       final Uint8List testData = Uint8List.fromList('verify-symmetric-key'.codeUnits);
-      final Uint8List iv = Uint8List(12);
+      final Uint8List iv = Uint8List(CryptoSizes.aesGcmIvLength);
+      fillRandomBytes(iv);
       final Uint8List encrypted = await symmetricKey.internal.encryptBytes(testData, iv);
       final Uint8List decrypted = await symmetricKey.internal.decryptBytes(encrypted, iv);
       

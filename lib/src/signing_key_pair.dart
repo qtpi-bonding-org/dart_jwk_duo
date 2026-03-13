@@ -1,12 +1,13 @@
 /// Type-safe wrapper for ECDSA P-256 signing key pairs.
 library;
 
-import 'dart:convert';
 import 'dart:typed_data';
 import 'package:webcrypto/webcrypto.dart';
 import 'interfaces.dart';
 import 'exported_jwk.dart';
 import 'constants.dart';
+import 'jwk_thumbprint.dart';
+import 'validation_service.dart';
 
 /// Type-safe wrapper for ECDSA P-256 signing key pairs.
 /// 
@@ -40,21 +41,17 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
   /// 
   /// Use case: Verify signatures when you only have the public key hex.
   static Future<SigningKeyPair> importPublicKeyHex(String hex) async {
-    if (hex.length != 128) {
-      throw ArgumentError('Public key hex must be 128 characters (got ${hex.length})');
-    }
-    
-    // Convert hex to bytes and add 04 prefix for uncompressed point format
-    final List<int> bytes = <int>[0x04]; // Uncompressed point prefix
-    for (int i = 0; i < hex.length; i += 2) {
-      bytes.add(int.parse(hex.substring(i, i + 2), radix: 16));
-    }
-    
+    final Uint8List coordinateBytes = ValidationService.parseValidatedHex(
+      hex, expectedLength: CryptoSizes.ecP256PublicKeyHexLength);
+
+    // Add 04 prefix for uncompressed point format
+    final Uint8List rawKey = Uint8List(CryptoSizes.ecP256RawPublicKeyLength);
+    rawKey[0] = 0x04;
+    rawKey.setRange(1, CryptoSizes.ecP256RawPublicKeyLength, coordinateBytes);
+
     final EcdsaPublicKey publicKey = await EcdsaPublicKey.importRawKey(
-      Uint8List.fromList(bytes),
-      EllipticCurve.p256,
-    );
-    
+      rawKey, EllipticCurve.p256);
+
     return SigningKeyPair.publicOnly(publicKey: publicKey);
   }
 
@@ -92,9 +89,12 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
   /// Export public key as hex string (128 chars, no 04 prefix) for auth token.
   Future<String> exportPublicKeyHex() async {
     final Uint8List raw = await exportPublicKeyRaw();
-    // Raw key is 65 bytes (04 prefix + 32 bytes x + 32 bytes y)
+    if (raw.length != CryptoSizes.ecP256RawPublicKeyLength) {
+      throw StateError(
+        'Unexpected raw public key length: ${raw.length} (expected ${CryptoSizes.ecP256RawPublicKeyLength})');
+    }
     // Skip the 04 prefix to get 64 bytes = 128 hex chars
-    final Uint8List bytes = raw.length == 65 ? raw.sublist(1) : raw;
+    final Uint8List bytes = raw.sublist(1);
     return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
   }
 
@@ -134,11 +134,8 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
 
   @override
   Future<String> calculateKeyId() async {
-    // RFC 7638 thumbprint for EC keys: {"crv":"...","kty":"EC","x":"...","y":"..."}
     final Map<String, dynamic> jwk = await _publicKey.exportJsonWebKey();
-    final String canonical = '{"crv":"${jwk['crv']}","kty":"${jwk['kty']}","x":"${jwk['x']}","y":"${jwk['y']}"}';
-    final Uint8List hash = await Hash.sha256.digestBytes(utf8.encode(canonical));
-    return base64Url.encode(hash).replaceAll('=', '');
+    return calculateJwkThumbprint(jwk);
   }
 
 }
