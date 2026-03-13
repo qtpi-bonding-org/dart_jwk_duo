@@ -198,25 +198,17 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     // and don't cause WebCrypto import issues
     
     if (requirePrivateKey) {
-      try {
-        final EcdhPrivateKey privateKey = await EcdhPrivateKey.importJsonWebKey(
-          keyDataCopy, EllipticCurve.p256);
-        
-        final Map<String, dynamic> publicKeyData = Map<String, dynamic>.from(keyDataCopy)..remove('d');
-        final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
-          publicKeyData, EllipticCurve.p256);
-        return EncryptionKeyPair(privateKey: privateKey, publicKey: publicKey);
-      } catch (e) {
-        rethrow;
-      }
+      final EcdhPrivateKey privateKey = await EcdhPrivateKey.importJsonWebKey(
+        keyDataCopy, EllipticCurve.p256);
+
+      final Map<String, dynamic> publicKeyData = Map<String, dynamic>.from(keyDataCopy)..remove('d');
+      final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
+        publicKeyData, EllipticCurve.p256);
+      return EncryptionKeyPair(privateKey: privateKey, publicKey: publicKey);
     } else {
-      try {
-        final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
-          keyDataCopy, EllipticCurve.p256);
-        return EncryptionKeyPair.publicOnly(publicKey: publicKey);
-      } catch (e) {
-        rethrow;
-      }
+      final EcdhPublicKey publicKey = await EcdhPublicKey.importJsonWebKey(
+        keyDataCopy, EllipticCurve.p256);
+      return EncryptionKeyPair.publicOnly(publicKey: publicKey);
     }
   }
 

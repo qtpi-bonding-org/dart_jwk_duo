@@ -115,9 +115,11 @@ class CryptoService {
     final Uint8List ephemeralKeyBytes = data.sublist(offset, offset + ephemeralKeyLength);
     offset += ephemeralKeyLength;
 
-    final Map<String, dynamic> ephemeralPublicJwk = jsonDecode(utf8.decode(ephemeralKeyBytes)) as Map<String, dynamic>;
+    final Map<String, dynamic> rawEphemeralJwk = jsonDecode(utf8.decode(ephemeralKeyBytes)) as Map<String, dynamic>;
 
-    // Validate ephemeral key structure before importing
+    // Strip to minimal public fields before importing — never pass untrusted extra fields
+    final Map<String, dynamic> ephemeralPublicJwk = ValidationService.extractPublicKeyFields(rawEphemeralJwk);
+
     if (ephemeralPublicJwk['kty'] != JwkKeyType.ec || ephemeralPublicJwk['crv'] != JwkCurve.p256) {
       throw ArgumentError('Ephemeral key must be EC P-256');
     }
