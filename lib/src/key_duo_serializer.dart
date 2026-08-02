@@ -38,8 +38,8 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     final ExportedJwk signingJwk = await duo.signing.exportPrivateKey();
     final ExportedJwk encryptionJwk = await duo.encryption.exportPrivateKey();
 
-    final Map<String, dynamic> jwkSet = {
-      'keys': [signingJwk.toJson(), encryptionJwk.toJson()],
+    final Map<String, dynamic> jwkSet = <String, dynamic>{
+      'keys': <Map<String, dynamic>>[signingJwk.toJson(), encryptionJwk.toJson()],
     };
 
     return jsonEncode(jwkSet);
@@ -50,8 +50,8 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     final ExportedJwk signingJwk = await duo.signing.exportPublicKey();
     final ExportedJwk encryptionJwk = await duo.encryption.exportPublicKey();
 
-    final Map<String, dynamic> jwkSet = {
-      'keys': [signingJwk.toJson(), encryptionJwk.toJson()],
+    final Map<String, dynamic> jwkSet = <String, dynamic>{
+      'keys': <Map<String, dynamic>>[signingJwk.toJson(), encryptionJwk.toJson()],
     };
 
     return jsonEncode(jwkSet);
@@ -153,7 +153,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     bool requirePrivateKey,
   ) async {
     // Create a clean copy for WebCrypto compatibility
-    final keyDataCopy = Map<String, dynamic>.from(keyData);
+    final Map<String, dynamic> keyDataCopy = Map<String, dynamic>.from(keyData);
     
     // Remove 'use' field to avoid WebCrypto compatibility issues
     // Some WebCrypto implementations may have issues with 'use' field validation
@@ -187,7 +187,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     bool requirePrivateKey,
   ) async {
     // Create a clean copy of keyData for WebCrypto compatibility
-    final keyDataCopy = Map<String, dynamic>.from(keyData);
+    final Map<String, dynamic> keyDataCopy = Map<String, dynamic>.from(keyData);
     
     // Remove 'use' field - WebCrypto ECDH implementation has inconsistent behavior:
     // - Export: omits 'use' field (sets to null)  

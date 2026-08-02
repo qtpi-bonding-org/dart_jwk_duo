@@ -15,8 +15,6 @@ import 'sec1_public_key.dart';
 /// Provides compile-time safety by restricting operations to signing keys only.
 /// Uses ES256 algorithm (ECDSA with P-256 curve and SHA-256).
 class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
-  final EcdsaPrivateKey? _privateKey;
-  final EcdsaPublicKey _publicKey;
   
   /// Creates a new SigningKeyPair wrapper with both private and public keys.
   SigningKeyPair({
@@ -30,6 +28,8 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
     required EcdsaPublicKey publicKey,
   }) : _privateKey = null,
        _publicKey = publicKey;
+  final EcdsaPrivateKey? _privateKey;
+  final EcdsaPublicKey _publicKey;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Static Import Methods

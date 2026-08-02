@@ -6,7 +6,6 @@ import 'package:webcrypto/webcrypto.dart';
 
 /// Type-safe wrapper for AES-256-GCM symmetric keys
 class SymmetricKey {
-  final AesGcmSecretKey _key;
   
   SymmetricKey._internal(this._key);
   
@@ -16,6 +15,7 @@ class SymmetricKey {
   factory SymmetricKey.fromAesKey(AesGcmSecretKey aesKey) {
     return SymmetricKey._internal(aesKey);
   }
+  final AesGcmSecretKey _key;
   
   /// Import from JWK string (uses WebCrypto import)
   /// 
@@ -55,6 +55,9 @@ class SymmetricKey {
     }
   }
   
-  // Internal access for CryptoService and VerificationService
+  /// The underlying webcrypto key.
+  ///
+  /// Internal access for CryptoService and VerificationService; prefer the
+  /// CryptoService helpers over reaching through this.
   AesGcmSecretKey get internal => _key;
 }

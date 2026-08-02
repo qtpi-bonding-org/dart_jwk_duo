@@ -9,6 +9,19 @@ import 'constants.dart';
 /// This DTO ensures that kid, alg, and use are always present and validated
 /// before serialization, preventing invalid states at compile time.
 class ExportedJwk {
+  
+  /// Creates a new ExportedJwk with validation.
+  /// 
+  /// Validates that the algorithm and use are consistent with the key type.
+  /// Throws [ArgumentError] if validation fails.
+  ExportedJwk({
+    required Map<String, dynamic> keyData,
+    required this.keyId,
+    required this.alg,
+    required this.use,
+  }) : _keyData = Map<String, dynamic>.unmodifiable(keyData) {
+    _validate();
+  }
   /// The underlying JWK data as a Map
   final Map<String, dynamic> _keyData;
   
@@ -20,19 +33,6 @@ class ExportedJwk {
   
   /// Public key use (use) - either 'sig' for signing or 'enc' for encryption
   final String use;
-  
-  /// Creates a new ExportedJwk with validation.
-  /// 
-  /// Validates that the algorithm and use are consistent with the key type.
-  /// Throws [ArgumentError] if validation fails.
-  ExportedJwk({
-    required Map<String, dynamic> keyData,
-    required this.keyId,
-    required this.alg,
-    required this.use,
-  }) : _keyData = Map.unmodifiable(keyData) {
-    _validate();
-  }
   
   /// Converts the ExportedJwk to a JSON Map.
   /// 
@@ -56,7 +56,7 @@ class ExportedJwk {
     
     if (kty == JwkKeyType.ec) {
       // EC key - copy curve and coordinates
-      publicKeyData = {
+      publicKeyData = <String, dynamic>{
         'kty': _keyData['kty'],
         'crv': _keyData['crv'],
         'x': _keyData['x'],

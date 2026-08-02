@@ -17,8 +17,6 @@ import 'public_key_hex.dart';
 /// Provides type-safe access to both key pairs with compile-time guarantees
 /// about the key types and their intended uses.
 class KeyDuo implements IKeyDuo {
-  final SigningKeyPair _signing;
-  final EncryptionKeyPair _encryption;
 
   /// Creates a new KeyDuo container.
   /// 
@@ -29,6 +27,8 @@ class KeyDuo implements IKeyDuo {
     required EncryptionKeyPair encryption,
   }) : _signing = signing,
        _encryption = encryption;
+  final SigningKeyPair _signing;
+  final EncryptionKeyPair _encryption;
 
   @override
   IKeyPair<EcdsaPrivateKey?, EcdsaPublicKey> get signing => _signing;

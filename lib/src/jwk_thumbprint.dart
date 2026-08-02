@@ -50,7 +50,7 @@ Future<String> calculateJwkThumbprint(Map<String, dynamic> jwk) async {
   
   // Create RFC 7638 canonical JSON: {"crv":"P-256","kty":"EC","x":"...","y":"..."}
   // Note: SplayTreeMap automatically sorts keys lexicographically
-  final SplayTreeMap<String, String> canonicalJwk = SplayTreeMap<String, String>.from({
+  final SplayTreeMap<String, String> canonicalJwk = SplayTreeMap<String, String>.from(<Object?, Object?>{
     'crv': crvValue,
     'kty': ktyValue,
     'x': xValue,

@@ -222,7 +222,7 @@ class ValidationService {
     if (keys is List) {
       for (final dynamic key in keys) {
         if (key is Map<String, dynamic>) {
-          const List<String> privateKeyComponents = ['d', 'p', 'q', 'dp', 'dq', 'qi', 'oth'];
+          const List<String> privateKeyComponents = <String>['d', 'p', 'q', 'dp', 'dq', 'qi', 'oth'];
           final List<String> foundComponents = <String>[];
 
           for (final String component in privateKeyComponents) {

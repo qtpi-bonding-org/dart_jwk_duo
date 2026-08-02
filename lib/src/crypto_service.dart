@@ -107,7 +107,7 @@ class CryptoService {
       throw StateError('Cannot decrypt: public-only encryption key pair');
     }
 
-    final int minLength =
+    const int minLength =
         CryptoSizes.hybridHeaderLength + CryptoSizes.aesGcmTagLength;
     if (data.length < minLength) {
       throw FormatException(
@@ -175,7 +175,7 @@ class CryptoService {
   ///
   /// Throws [FormatException] if [data] is too short to be well formed.
   static Future<Uint8List> decryptSymmetric(Uint8List data, SymmetricKey symmetricKey) async {
-    final int minLength =
+    const int minLength =
         CryptoSizes.aesGcmIvLength + CryptoSizes.aesGcmTagLength;
     if (data.length < minLength) {
       throw FormatException(

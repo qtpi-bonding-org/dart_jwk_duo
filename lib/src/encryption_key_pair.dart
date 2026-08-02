@@ -15,8 +15,6 @@ import 'sec1_public_key.dart';
 /// Provides compile-time safety by restricting operations to ECDH keys only.
 /// Uses ECDH-ES+A256KW algorithm for key agreement and hybrid encryption.
 class EncryptionKeyPair implements IKeyPair<EcdhPrivateKey, EcdhPublicKey> {
-  final EcdhPrivateKey? _privateKey;
-  final EcdhPublicKey _publicKey;
   
   /// Creates a new EncryptionKeyPair wrapper with both private and public keys.
   /// 
@@ -43,6 +41,8 @@ class EncryptionKeyPair implements IKeyPair<EcdhPrivateKey, EcdhPublicKey> {
     required EcdhPublicKey publicKey,
   }) : _privateKey = null,
        _publicKey = publicKey;
+  final EcdhPrivateKey? _privateKey;
+  final EcdhPublicKey _publicKey;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // Static Import Methods

@@ -46,7 +46,7 @@ void main() {
 
     test('JWK thumbprint validation errors', () async {
       expect(
-        () => calculateJwkThumbprint({'kty': 'EC', 'crv': 'P-256', 'x': 'test'}),
+        () => calculateJwkThumbprint(<String, dynamic>{'kty': 'EC', 'crv': 'P-256', 'x': 'test'}),
         throwsA(isA<ArgumentError>()),
         reason: 'Should throw when missing required field "y"',
       );
@@ -518,7 +518,7 @@ void main() {
       
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuo keyDuo = await GenerationService.generateKeyDuo();
-        final KeyDuoSerializer serializer = KeyDuoSerializer();
+        const KeyDuoSerializer serializer = KeyDuoSerializer();
         
         final String jwkSetJson = await serializer.exportKeyDuoJwk(keyDuo);
         final Map<String, dynamic> jwkSetData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
@@ -548,13 +548,13 @@ void main() {
         }
         
         // Must contain one signing key (EC) and one encryption key (EC)
-        final Set<String> uses = keys.map((k) => (k as Map<String, dynamic>)['use'] as String).toSet();
+        final Set<String> uses = keys.map((dynamic k) => (k as Map<String, dynamic>)['use'] as String).toSet();
         expect(uses.contains('sig'), isTrue,
                reason: 'JWK Set must contain a signing key');
         expect(uses.contains('enc'), isTrue,
                reason: 'JWK Set must contain an encryption key');
         
-        final Set<String> ktys = keys.map((k) => (k as Map<String, dynamic>)['kty'] as String).toSet();
+        final Set<String> ktys = keys.map((dynamic k) => (k as Map<String, dynamic>)['kty'] as String).toSet();
         expect(ktys.contains('EC'), isTrue,
                reason: 'JWK Set must contain EC keys');
         expect(ktys.length, equals(1),
@@ -566,7 +566,7 @@ void main() {
       
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuo keyDuo = await GenerationService.generateKeyDuo();
-        final KeyDuoSerializer serializer = KeyDuoSerializer();
+        const KeyDuoSerializer serializer = KeyDuoSerializer();
         
         final String jwkSetJson = await serializer.exportKeyDuoJwk(keyDuo);
         final Map<String, dynamic> jwkSetData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
@@ -599,7 +599,7 @@ void main() {
     });
 
     test('property test - JWK Set import validation', () async {
-      final KeyDuoSerializer serializer = KeyDuoSerializer();
+      const KeyDuoSerializer serializer = KeyDuoSerializer();
       
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuo originalKeyDuo = await GenerationService.generateKeyDuo();
@@ -627,9 +627,9 @@ void main() {
     });
 
     test('property test - Import key validation errors', () async {
-      final KeyDuoSerializer serializer = KeyDuoSerializer();
+      const KeyDuoSerializer serializer = KeyDuoSerializer();
       
-      final List<String> invalidJwkSets = [
+      final List<String> invalidJwkSets = <String>[
         '{}', // Missing keys array
         '{"keys": []}', // Empty keys array
         '{"keys": [{}]}', // Single key (need 2)
@@ -653,7 +653,7 @@ void main() {
     });
 
     test('property test - Import-export round trip', () async {
-      final KeyDuoSerializer serializer = KeyDuoSerializer();
+      const KeyDuoSerializer serializer = KeyDuoSerializer();
       
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuo originalKeyDuo = await GenerationService.generateKeyDuo();
@@ -672,8 +672,8 @@ void main() {
                reason: 'Round-trip should preserve number of keys');
         
         // Verify both key sets contain the same key identifiers
-        final Set<String> originalKids = originalKeys.map((k) => (k as Map<String, dynamic>)['kid'] as String).toSet();
-        final Set<String> reExportedKids = reExportedKeys.map((k) => (k as Map<String, dynamic>)['kid'] as String).toSet();
+        final Set<String> originalKids = originalKeys.map((dynamic k) => (k as Map<String, dynamic>)['kid'] as String).toSet();
+        final Set<String> reExportedKids = reExportedKeys.map((dynamic k) => (k as Map<String, dynamic>)['kid'] as String).toSet();
         
         expect(originalKids, equals(reExportedKids),
                reason: 'Round-trip should preserve key identifiers');
@@ -690,7 +690,7 @@ void main() {
     });
 
     test('property test - Public key export and import', () async {
-      final KeyDuoSerializer serializer = KeyDuoSerializer();
+      const KeyDuoSerializer serializer = KeyDuoSerializer();
       
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuo originalKeyDuo = await GenerationService.generateKeyDuo();
@@ -729,7 +729,7 @@ Map<String, dynamic> _generateRandomEcJwk(Random random) {
   final String x = _generateRandomBase64Url(random, 32);
   final String y = _generateRandomBase64Url(random, 32);
   
-  return {
+  return <String, dynamic>{
     'kty': 'EC',
     'crv': 'P-256',
     'x': x,
