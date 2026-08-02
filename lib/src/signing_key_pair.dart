@@ -85,7 +85,7 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
     if (_privateKey == null) {
       throw StateError('Cannot sign: public-only key pair');
     }
-    return await _privateKey!.signBytes(data, Hash.sha256);
+    return await _privateKey.signBytes(data, Hash.sha256);
   }
 
   /// Verify a signature against the original data.
@@ -120,7 +120,7 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
       throw StateError('Cannot export private key: public-only key pair');
     }
     
-    final Map<String, dynamic> jwkMap = await _privateKey!.exportJsonWebKey();
+    final Map<String, dynamic> jwkMap = await _privateKey.exportJsonWebKey();
     final String keyId = await calculateKeyId();
     
     return ExportedJwk(

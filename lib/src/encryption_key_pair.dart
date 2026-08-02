@@ -97,7 +97,7 @@ class EncryptionKeyPair implements IKeyPair<EcdhPrivateKey, EcdhPublicKey> {
       throw StateError('Cannot export private key: This is a public-only key pair');
     }
     
-    final Map<String, dynamic> jwkMap = await _privateKey!.exportJsonWebKey();
+    final Map<String, dynamic> jwkMap = await _privateKey.exportJsonWebKey();
     final String keyId = await calculateKeyId();
     
     return ExportedJwk(

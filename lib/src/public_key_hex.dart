@@ -78,18 +78,6 @@ extension type const EncryptionPublicKeyHex._(String value) implements String {
 /// Across the wire, where types are gone, purpose is carried by the JSON
 /// field names `signingPublicKeyHex` and `encryptionPublicKeyHex`.
 class PublicKeyDuo {
-  /// JSON field name for the signing public key.
-  static const String signingJsonKey = 'signingPublicKeyHex';
-
-  /// JSON field name for the encryption public key.
-  static const String encryptionJsonKey = 'encryptionPublicKeyHex';
-
-  /// The signing (ECDSA) public key, SEC1 hex.
-  final SigningPublicKeyHex signing;
-
-  /// The encryption (ECDH) public key, SEC1 hex.
-  final EncryptionPublicKeyHex encryption;
-
   /// Creates a public key duo.
   ///
   /// Throws [ArgumentError] if both slots hold the same key. Two identical
@@ -118,10 +106,10 @@ class PublicKeyDuo {
     final Object? encryption = json[encryptionJsonKey];
 
     if (signing is! String) {
-      throw FormatException('Missing or non-string "$signingJsonKey"');
+      throw const FormatException('Missing or non-string "$signingJsonKey"');
     }
     if (encryption is! String) {
-      throw FormatException('Missing or non-string "$encryptionJsonKey"');
+      throw const FormatException('Missing or non-string "$encryptionJsonKey"');
     }
 
     return PublicKeyDuo(
@@ -129,6 +117,18 @@ class PublicKeyDuo {
       encryption: EncryptionPublicKeyHex(encryption),
     );
   }
+
+  /// JSON field name for the signing public key.
+  static const String signingJsonKey = 'signingPublicKeyHex';
+
+  /// JSON field name for the encryption public key.
+  static const String encryptionJsonKey = 'encryptionPublicKeyHex';
+
+  /// The signing (ECDSA) public key, SEC1 hex.
+  final SigningPublicKeyHex signing;
+
+  /// The encryption (ECDH) public key, SEC1 hex.
+  final EncryptionPublicKeyHex encryption;
 
   /// The JSON representation, with purpose stated in the field names.
   Map<String, dynamic> toJson() => <String, dynamic>{
