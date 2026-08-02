@@ -166,7 +166,9 @@ length and hex errors threw `ArgumentError` while curve errors threw
 
 ### Code — `quanitya_flutter`
 
-12 call sites, all compile errors so none can be missed:
+**25 call sites**, all compile errors so none can be missed.
+
+**Semantic changes — read these (12 sites):**
 
 | File | Change |
 |---|---|
@@ -175,6 +177,29 @@ length and hex errors threw `ArgumentError` while curve errors threw
 | `infrastructure/crypto/crypto_key_repository.dart` (×3) | `exportPublicKeyHex()` → `exportPublicKeySec1Hex()` |
 | `infrastructure/auth/account_service.dart` (×4) | same, plus `verifySignatureWithPublicKeyHex(publicKeyHex:)` → `verifySignatureWithPublicKeySec1Hex(publicKeySec1Hex:)` |
 | `infrastructure/crypto/data_encryption_service.dart` (×3) | `CryptoService.encrypt/decrypt(x, tempKeyDuo)` → `(x, tempKeyDuo.encryptionKeyPair)`; the throwaway `KeyDuo` may now be unnecessary |
+
+Note the first four rows change the *value*, not just the name: 128 hex → 130
+hex. Anything persisting or transmitting those results is affected — see the
+data migration below.
+
+**Mechanical renames — pure find-and-replace, no behaviour change (13 sites):**
+
+`KeyDuoSerializer`'s four JWK methods gained a `Jwk` suffix so they don't
+collide with `KeyDuo.exportPublicKeyDuo()`, which returns a `PublicKeyDuo`
+rather than JWK Set JSON.
+
+```
+exportKeyDuo(       → exportKeyDuoJwk(
+exportPublicKeyDuo( → exportPublicKeyDuoJwk(
+importKeyDuo(       → importKeyDuoJwk(
+importPublicKeyDuo( → importPublicKeyDuoJwk(
+```
+
+In `pairing_service.dart` (×3) and `crypto_key_repository.dart` (×10). These
+still take and return JWK Set JSON exactly as before — the rename is only to
+remove the name collision. **Careful with blind search-and-replace**: match on
+the trailing `(` so you don't rewrite `KeyDuo.exportPublicKeyDuo()`, which
+keeps its name.
 
 Return types are now the typed wrappers. Where a value goes into a Serverpod
 call or a DB write, use `.value` to get the `String`; where one comes back,
