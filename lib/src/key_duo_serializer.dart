@@ -16,16 +16,16 @@ import 'validation_service.dart';
 /// Interface for serializing and deserializing KeyDuo instances.
 abstract class IKeyDuoSerializer {
   /// Exports a KeyDuo as a JWK Set containing private keys.
-  Future<String> exportKeyDuo(IKeyDuo duo);
+  Future<String> exportKeyDuoJwk(IKeyDuo duo);
 
   /// Exports a KeyDuo as a JWK Set containing only public keys.
-  Future<String> exportPublicKeyDuo(IKeyDuo duo);
+  Future<String> exportPublicKeyDuoJwk(IKeyDuo duo);
 
   /// Imports a KeyDuo from a JWK Set JSON string containing private keys.
-  Future<KeyDuo> importKeyDuo(String jwkSetJson);
+  Future<KeyDuo> importKeyDuoJwk(String jwkSetJson);
 
   /// Imports a public-only KeyDuo from a JWK Set JSON string.
-  Future<KeyDuo> importPublicKeyDuo(String jwkSetJson);
+  Future<KeyDuo> importPublicKeyDuoJwk(String jwkSetJson);
 }
 
 /// Implementation of IKeyDuoSerializer with validation and type safety.
@@ -34,7 +34,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
   const KeyDuoSerializer();
 
   @override
-  Future<String> exportKeyDuo(IKeyDuo duo) async {
+  Future<String> exportKeyDuoJwk(IKeyDuo duo) async {
     final ExportedJwk signingJwk = await duo.signing.exportPrivateKey();
     final ExportedJwk encryptionJwk = await duo.encryption.exportPrivateKey();
 
@@ -46,7 +46,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
   }
 
   @override
-  Future<String> exportPublicKeyDuo(IKeyDuo duo) async {
+  Future<String> exportPublicKeyDuoJwk(IKeyDuo duo) async {
     final ExportedJwk signingJwk = await duo.signing.exportPublicKey();
     final ExportedJwk encryptionJwk = await duo.encryption.exportPublicKey();
 
@@ -58,7 +58,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
   }
 
   @override
-  Future<KeyDuo> importKeyDuo(String jwkSetJson) async {
+  Future<KeyDuo> importKeyDuoJwk(String jwkSetJson) async {
     final Map<String, dynamic> jwkSet;
     try {
       jwkSet = jsonDecode(jwkSetJson) as Map<String, dynamic>;
@@ -70,7 +70,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
   }
 
   @override
-  Future<KeyDuo> importPublicKeyDuo(String jwkSetJson) async {
+  Future<KeyDuo> importPublicKeyDuoJwk(String jwkSetJson) async {
     final Map<String, dynamic> jwkSet;
     try {
       jwkSet = jsonDecode(jwkSetJson) as Map<String, dynamic>;
@@ -230,7 +230,7 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
   /// Throws [StateError] if cryptographic verification fails.
   static Future<KeyDuo> verifyJwk(String jwkSetJson) async {
     const KeyDuoSerializer serializer = KeyDuoSerializer();
-    final KeyDuo keyDuo = await serializer.importKeyDuo(jwkSetJson);
+    final KeyDuo keyDuo = await serializer.importKeyDuoJwk(jwkSetJson);
     
     // Use VerificationService instead of removed KeyDuo.verify()
     final bool verified = await VerificationService.verifyKeyDuo(keyDuo);

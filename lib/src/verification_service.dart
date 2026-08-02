@@ -151,7 +151,7 @@ class VerificationService {
   /// Throws [StateError] if keys don't have private material or verification fails.
   static Future<KeyDuo> verifyKeyDuoJwk(String jwkSetJson) async {
     const KeyDuoSerializer serializer = KeyDuoSerializer();
-    final KeyDuo keyDuo = await serializer.importKeyDuo(jwkSetJson);
+    final KeyDuo keyDuo = await serializer.importKeyDuoJwk(jwkSetJson);
     
     final bool verified = await verifyKeyDuo(keyDuo);
     if (!verified) {

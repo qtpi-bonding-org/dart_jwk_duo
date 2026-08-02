@@ -425,7 +425,7 @@ void main() {
         () async {
       final KeyDuo keyDuo = await GenerationService.generateKeyDuo();
       const KeyDuoSerializer serializer = KeyDuoSerializer();
-      final String jwkSetJson = await serializer.exportKeyDuo(keyDuo);
+      final String jwkSetJson = await serializer.exportKeyDuoJwk(keyDuo);
 
       final String signing =
           await KeyDuoSerializer.extractSigningPublicKeySec1Hex(jwkSetJson);

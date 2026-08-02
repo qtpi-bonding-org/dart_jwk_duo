@@ -234,7 +234,7 @@ class ValidationService {
           if (foundComponents.isNotEmpty) {
             throw FormatException(
               'Private key material detected: ${foundComponents.join(', ')}. '
-              'Use importKeyDuo() for private keys.',
+              'Use importKeyDuoJwk() for private keys.',
             );
           }
         }

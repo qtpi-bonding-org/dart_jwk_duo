@@ -520,7 +520,7 @@ void main() {
         final KeyDuo keyDuo = await GenerationService.generateKeyDuo();
         final KeyDuoSerializer serializer = KeyDuoSerializer();
         
-        final String jwkSetJson = await serializer.exportKeyDuo(keyDuo);
+        final String jwkSetJson = await serializer.exportKeyDuoJwk(keyDuo);
         final Map<String, dynamic> jwkSetData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
         
         expect(jwkSetData.containsKey('keys'), isTrue,
@@ -568,7 +568,7 @@ void main() {
         final KeyDuo keyDuo = await GenerationService.generateKeyDuo();
         final KeyDuoSerializer serializer = KeyDuoSerializer();
         
-        final String jwkSetJson = await serializer.exportKeyDuo(keyDuo);
+        final String jwkSetJson = await serializer.exportKeyDuoJwk(keyDuo);
         final Map<String, dynamic> jwkSetData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
         final List<dynamic> keys = jwkSetData['keys'] as List<dynamic>;
         
@@ -603,9 +603,9 @@ void main() {
       
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuo originalKeyDuo = await GenerationService.generateKeyDuo();
-        final String jwkSetJson = await serializer.exportKeyDuo(originalKeyDuo);
+        final String jwkSetJson = await serializer.exportKeyDuoJwk(originalKeyDuo);
         
-        final KeyDuo importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
+        final KeyDuo importedKeyDuo = await serializer.importKeyDuoJwk(jwkSetJson);
         
         expect(importedKeyDuo, isA<KeyDuo>(),
                reason: 'Import should return IKeyDuo instance');
@@ -638,7 +638,7 @@ void main() {
       
       for (final String invalidJwkSet in invalidJwkSets) {
         expect(
-          () => serializer.importKeyDuo(invalidJwkSet),
+          () => serializer.importKeyDuoJwk(invalidJwkSet),
           throwsA(isA<FormatException>()),
           reason: 'Invalid JWK Set should throw FormatException: $invalidJwkSet',
         );
@@ -646,7 +646,7 @@ void main() {
       
       // Test malformed JSON
       expect(
-        () => serializer.importKeyDuo('invalid json'),
+        () => serializer.importKeyDuoJwk('invalid json'),
         throwsA(isA<FormatException>()),
         reason: 'Malformed JSON should throw FormatException',
       );
@@ -658,9 +658,9 @@ void main() {
       for (int i = 0; i < expensiveIterations; i++) {
         final KeyDuo originalKeyDuo = await GenerationService.generateKeyDuo();
         
-        final String jwkSetJson = await serializer.exportKeyDuo(originalKeyDuo);
-        final KeyDuo importedKeyDuo = await serializer.importKeyDuo(jwkSetJson);
-        final String reExportedJson = await serializer.exportKeyDuo(importedKeyDuo);
+        final String jwkSetJson = await serializer.exportKeyDuoJwk(originalKeyDuo);
+        final KeyDuo importedKeyDuo = await serializer.importKeyDuoJwk(jwkSetJson);
+        final String reExportedJson = await serializer.exportKeyDuoJwk(importedKeyDuo);
         
         final Map<String, dynamic> originalData = jsonDecode(jwkSetJson) as Map<String, dynamic>;
         final Map<String, dynamic> reExportedData = jsonDecode(reExportedJson) as Map<String, dynamic>;
@@ -696,7 +696,7 @@ void main() {
         final KeyDuo originalKeyDuo = await GenerationService.generateKeyDuo();
         
         // Export public keys only
-        final String publicJwkSetJson = await serializer.exportPublicKeyDuo(originalKeyDuo);
+        final String publicJwkSetJson = await serializer.exportPublicKeyDuoJwk(originalKeyDuo);
         final Map<String, dynamic> publicJwkSetData = jsonDecode(publicJwkSetJson) as Map<String, dynamic>;
         final List<dynamic> publicKeys = publicJwkSetData['keys'] as List<dynamic>;
         
@@ -708,7 +708,7 @@ void main() {
         }
         
         // Import public keys
-        final IKeyDuo importedPublicKeyDuo = await serializer.importPublicKeyDuo(publicJwkSetJson);
+        final IKeyDuo importedPublicKeyDuo = await serializer.importPublicKeyDuoJwk(publicJwkSetJson);
         
         expect(importedPublicKeyDuo.signing.hasPrivateKey, isFalse,
                reason: 'Imported public signing key should not have private key');
