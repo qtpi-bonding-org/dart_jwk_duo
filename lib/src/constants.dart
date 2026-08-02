@@ -57,25 +57,48 @@ class CryptoSizes {
   /// AES-GCM initialization vector length (12 bytes / 96 bits)
   static const int aesGcmIvLength = 12;
 
+  /// AES-GCM authentication tag length (16 bytes / 128 bits)
+  ///
+  /// Appended to the ciphertext by `webcrypto`, so an AES-GCM ciphertext is
+  /// always exactly this much longer than its plaintext.
+  static const int aesGcmTagLength = 16;
+
   /// HKDF salt length (32 bytes / 256 bits, matches SHA-256 output per RFC 5869)
   static const int hkdfSaltLength = 32;
 
-  /// EC P-256 uncompressed public key length (04 prefix + 32-byte x + 32-byte y)
-  static const int ecP256RawPublicKeyLength = 65;
+  /// SEC1 uncompressed point tag, the leading byte of `04 || x || y`.
+  ///
+  /// Defined in SEC1 §2.3.3 and identically in ANSI X9.62 and RFC 5480.
+  /// The compressed tags (0x02, 0x03) are not used by this library.
+  static const int sec1UncompressedTag = 0x04;
 
-  /// EC P-256 coordinate data length (32-byte x + 32-byte y, no prefix)
-  static const int ecP256CoordinatesLength = 64;
+  /// EC P-256 SEC1 uncompressed public key length in bytes.
+  ///
+  /// 1 tag byte + 32-byte x + 32-byte y. This is the only public key byte
+  /// encoding this library emits or accepts, and it is what WebCrypto calls
+  /// the `"raw"` format.
+  static const int ecP256Sec1PublicKeyLength = 65;
 
-  /// EC P-256 public key hex string length (64 bytes as hex = 128 chars)
-  static const int ecP256PublicKeyHexLength = 128;
+  /// EC P-256 SEC1 uncompressed public key length in hex characters (130).
+  static const int ecP256Sec1PublicKeyHexLength =
+      ecP256Sec1PublicKeyLength * 2;
 
   /// ECDSA P-256 signature length
   static const int ecdsaP256SignatureLength = 64;
 
-  /// Wire format length prefix size (4 bytes, big-endian uint32)
-  static const int lengthPrefixSize = 4;
-
-  /// Maximum allowed ephemeral key length in wire format (prevents DoS)
-  static const int maxEphemeralKeyLength = 4096;
+  /// Fixed header length of a hybrid-encrypted blob.
+  ///
+  /// The layout is entirely fixed-size:
+  ///
+  /// ```
+  /// | ephemeral SEC1 public key | HKDF salt | AES-GCM IV | ciphertext + tag |
+  /// |         65 bytes          | 32 bytes  |  12 bytes  |     variable     |
+  /// ```
+  ///
+  /// There are no length prefixes and nothing is JSON-encoded, so parsing is
+  /// a handful of constant offsets and there is no attacker-controlled length
+  /// to bound.
+  static const int hybridHeaderLength =
+      ecP256Sec1PublicKeyLength + hkdfSaltLength + aesGcmIvLength;
 }
 

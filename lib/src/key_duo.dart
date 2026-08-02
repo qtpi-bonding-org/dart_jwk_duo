@@ -9,7 +9,8 @@ import 'interfaces.dart';
 import 'signing_key_pair.dart';
 import 'encryption_key_pair.dart';
 import 'crypto_service.dart';
-import 'validation_service.dart';
+import 'hex_codec.dart';
+import 'public_key_hex.dart';
 
 /// Container holding both signing and encryption key pairs.
 /// 
@@ -41,33 +42,43 @@ class KeyDuo implements IKeyDuo {
   /// Access the concrete EncryptionKeyPair for encryption operations.
   EncryptionKeyPair get encryptionKeyPair => _encryption;
 
-  /// Encrypt data with this KeyDuo's encryption key
-  /// 
+  /// Export both public keys as a typed [PublicKeyDuo].
+  ///
+  /// Prefer this over exporting the two hex strings separately: the slots are
+  /// typed, so the pair cannot be assembled with the arguments transposed or
+  /// with the same key in both fields.
+  Future<PublicKeyDuo> exportPublicKeyDuo() async {
+    return PublicKeyDuo(
+      signing: await _signing.exportPublicKeySec1Hex(),
+      encryption: await _encryption.exportPublicKeySec1Hex(),
+    );
+  }
+
+  /// Encrypt data to this KeyDuo's own encryption key
+  ///
   /// Convenience method that delegates to CryptoService.encrypt().
-  /// 
+  /// To encrypt to someone else, call CryptoService.encrypt() with their
+  /// [EncryptionKeyPair] directly — a whole KeyDuo is not required.
+  ///
   /// [data] - The data to encrypt
-  /// 
+  ///
   /// Returns encrypted bytes.
   Future<Uint8List> encrypt(Uint8List data) async {
-    return await CryptoService.encrypt(data, this);
+    return await CryptoService.encrypt(data, _encryption);
   }
-  
+
   /// Decrypt data with this KeyDuo's encryption key
-  /// 
+  ///
   /// Convenience method that delegates to CryptoService.decrypt().
-  /// 
+  ///
   /// [data] - The encrypted data to decrypt
-  /// 
+  ///
   /// Returns decrypted bytes.
   /// Throws [StateError] if KeyDuo has no private key.
   Future<Uint8List> decrypt(Uint8List data) async {
-    final EcdhPrivateKey? privateKey = _encryption.privateKey;
-    if (privateKey == null) {
-      throw StateError('Cannot decrypt: KeyDuo has no private key');
-    }
-    return await CryptoService.decrypt(data, this);
+    return await CryptoService.decrypt(data, _encryption);
   }
-  
+
   /// Sign data with this KeyDuo's signing key
   /// 
   /// Convenience method that delegates to SigningKeyPair.signBytes().
@@ -126,8 +137,7 @@ class KeyDuo implements IKeyDuo {
   /// Returns hex-encoded signature.
   Future<String> signString(String data) async {
     final Uint8List dataBytes = utf8.encode(data);
-    final Uint8List signatureBytes = await sign(dataBytes);
-    return signatureBytes.map((int b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return HexCodec.encode(await sign(dataBytes));
   }
   
   /// Verify hex signature
@@ -139,8 +149,10 @@ class KeyDuo implements IKeyDuo {
   /// 
   /// Returns `true` if signature is valid, `false` otherwise.
   Future<bool> verifySignatureString(String data, String signatureHex) async {
-    final Uint8List signatureBytes = ValidationService.parseValidatedHex(
-      signatureHex, expectedLength: CryptoSizes.ecdsaP256SignatureLength * 2);
+    final Uint8List signatureBytes = HexCodec.decode(
+      signatureHex,
+      expectedLength: CryptoSizes.ecdsaP256SignatureLength * 2,
+    );
     final Uint8List dataBytes = utf8.encode(data);
     return await verifySignature(dataBytes, signatureBytes);
   }

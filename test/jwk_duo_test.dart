@@ -291,13 +291,13 @@ void main() {
           publicKey: keyPair.publicKey,
         );
         
-        final String publicKeyHex = await signingKeyPair.exportPublicKeyHex();
-        
-        // ECDSA P-256 public key should be 128 hex chars (64 bytes = x||y)
-        expect(publicKeyHex.length, equals(128),
-               reason: 'Public key hex should be 128 characters');
-        expect(publicKeyHex, matches(RegExp(r'^[0-9a-f]+$')),
-               reason: 'Public key hex should be lowercase hex');
+        final String publicKeySec1Hex = await signingKeyPair.exportPublicKeySec1Hex();
+
+        // ECDSA P-256 public key should be 130 hex chars (65 bytes = 04||x||y)
+        expect(publicKeySec1Hex.length, equals(130),
+               reason: 'SEC1 public key hex should be 130 characters');
+        expect(publicKeySec1Hex, matches(RegExp(r'^04[0-9a-f]+$')),
+               reason: 'SEC1 public key hex should be lowercase hex tagged 04');
         
         // Raw export should be 65 bytes (04 prefix + 64 bytes)
         final Uint8List publicKeyRaw = await signingKeyPair.exportPublicKeyRaw();
@@ -507,8 +507,8 @@ void main() {
       final Uint8List signature = await signingKeyPair.signBytes(message);
       expect(signature.length, equals(64), reason: 'ECDSA P-256 signature should be 64 bytes');
       
-      final String publicKeyHex = await signingKeyPair.exportPublicKeyHex();
-      expect(publicKeyHex.length, equals(128), reason: 'Public key hex should be 128 chars');
+      final String publicKeySec1Hex = await signingKeyPair.exportPublicKeySec1Hex();
+      expect(publicKeySec1Hex.length, equals(130), reason: 'SEC1 public key hex should be 130 chars');
     });
   });
 

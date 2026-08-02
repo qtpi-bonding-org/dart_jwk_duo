@@ -21,23 +21,14 @@ class GenerationService {
   /// Returns a new [KeyDuo] with both private and public keys.
   static Future<KeyDuo> generateKeyDuo() async {
     // Generate ECDSA P-256 key pair for signing
-    // WebCrypto browser compatibility: explicitly specify key usages
-    final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) signingKeyPair;
-    try {
-      signingKeyPair = await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
-    } catch (e) {
-      rethrow;
-    }
-    
-    // Generate ECDH P-256 key pair for encryption  
-    // WebCrypto browser compatibility: ECDH keys may have stricter usage validation
-    final ({EcdhPrivateKey privateKey, EcdhPublicKey publicKey}) encryptionKeyPair;
-    try {
-      encryptionKeyPair = await EcdhPrivateKey.generateKey(EllipticCurve.p256);
-    } catch (e) {
-      rethrow;
-    }
-    
+    final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) signingKeyPair =
+        await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
+
+    // Generate ECDH P-256 key pair for encryption
+    final ({EcdhPrivateKey privateKey, EcdhPublicKey publicKey}) encryptionKeyPair =
+        await EcdhPrivateKey.generateKey(EllipticCurve.p256);
+
+
     // Create typed wrappers
     final SigningKeyPair signing = SigningKeyPair(
       privateKey: signingKeyPair.privateKey,

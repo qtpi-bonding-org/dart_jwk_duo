@@ -5,37 +5,56 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:webcrypto/webcrypto.dart';
 import 'constants.dart';
-import 'key_duo.dart';
+import 'encryption_key_pair.dart';
+import 'hex_codec.dart';
+import 'sec1_public_key.dart';
+import 'signing_key_pair.dart';
 import 'symmetric_key.dart';
-import 'validation_service.dart';
 
 /// Simple cryptographic operations service - building blocks only
-/// 
+///
 /// Provides basic encrypt/decrypt/sign/verify operations without validation.
 /// Flutter app decides when to validate keys and handles error policy.
-/// 
+///
 /// Uses ECDH + AES hybrid encryption for web compatibility.
+///
+/// Every operation takes the specific key pair it needs — [EncryptionKeyPair]
+/// for encrypt/decrypt, [SigningKeyPair] for sign/verify — rather than a whole
+/// `KeyDuo`. This keeps the two halves symmetric and means encrypting to a
+/// recipient needs only their public key, exactly as verifying a signature
+/// needs only the signer's public key.
 class CryptoService {
   // ═══════════════════════════════════════════════════════════════════════════
   // Asymmetric Operations - ECDH + AES Hybrid Encryption
   // ═══════════════════════════════════════════════════════════════════════════
   
-  /// Encrypt data using ECDH + AES hybrid encryption
-  /// 
+  /// Encrypt data to [recipient] using ECDH + AES hybrid encryption
+  ///
+  /// Only the recipient's public key is used, so [recipient] may be a
+  /// public-only key pair — a sender never needs the recipient's private key.
+  ///
+  /// The result has a fixed-size header — see [CryptoSizes.hybridHeaderLength]:
+  ///
+  /// ```
+  /// | ephemeral SEC1 public key | HKDF salt | AES-GCM IV | ciphertext + tag |
+  /// |         65 bytes          | 32 bytes  |  12 bytes  |     variable     |
+  /// ```
+  ///
   /// Process:
   /// 1. Generate ephemeral ECDH key pair
   /// 2. Perform ECDH key agreement with recipient's public key
-  /// 3. Derive AES key from shared secret using HKDF
-  /// 4. Encrypt data with AES-GCM
-  /// 5. Return ephemeral public key + encrypted data
-  static Future<Uint8List> encrypt(Uint8List data, KeyDuo keyDuo) async {
+  /// 3. Derive AES key from shared secret using HKDF with a random salt
+  /// 4. Encrypt data with AES-GCM under a random IV
+  /// 5. Return the ephemeral public key, salt, IV and ciphertext
+  static Future<Uint8List> encrypt(
+      Uint8List data, EncryptionKeyPair recipient) async {
     // 1. Generate ephemeral ECDH key pair
     final ({EcdhPrivateKey privateKey, EcdhPublicKey publicKey}) ephemeralKeyPair = 
         await EcdhPrivateKey.generateKey(EllipticCurve.p256);
     
     // 2. Perform ECDH key agreement
     final Uint8List sharedSecret = await ephemeralKeyPair.privateKey.deriveBits(
-      256, keyDuo.encryption.publicKey);
+      256, recipient.publicKey);
     
     // 3. Generate random HKDF salt
     final Uint8List salt = _generateSalt();
@@ -49,113 +68,90 @@ class CryptoService {
     // 6. Encrypt data with AES-GCM
     final Uint8List ciphertext = await aesKey.encryptBytes(data, iv);
 
-    // 7. Export ephemeral public key
-    final Map<String, dynamic> ephemeralPublicJwk = await ephemeralKeyPair.publicKey.exportJsonWebKey();
-    final Uint8List ephemeralPublicKeyBytes = utf8.encode(jsonEncode(ephemeralPublicJwk));
+    // 7. Export the ephemeral public key as a fixed 65-byte SEC1 point
+    final Uint8List ephemeralPublicKeyBytes = Sec1PublicKey.validateRaw(
+      await ephemeralKeyPair.publicKey.exportRawKey());
 
-    // 8. Combine: ephemeral_key_length(4) + ephemeral_key + salt(32) + iv(12) + ciphertext
-    final Uint8List result = Uint8List(4 + ephemeralPublicKeyBytes.length + salt.length + iv.length + ciphertext.length);
-    int offset = 0;
-    
-    // Write ephemeral key length (4 bytes, big-endian)
-    result.setRange(offset, offset + 4, _uint32ToBytes(ephemeralPublicKeyBytes.length));
-    offset += 4;
-    
-    // Write ephemeral public key
-    result.setRange(offset, offset + ephemeralPublicKeyBytes.length, ephemeralPublicKeyBytes);
-    offset += ephemeralPublicKeyBytes.length;
+    // 8. Concatenate the fixed header and the ciphertext
+    final Uint8List result =
+        Uint8List(CryptoSizes.hybridHeaderLength + ciphertext.length);
+    result.setRange(0, _saltOffset, ephemeralPublicKeyBytes);
+    result.setRange(_saltOffset, _ivOffset, salt);
+    result.setRange(_ivOffset, CryptoSizes.hybridHeaderLength, iv);
+    result.setRange(CryptoSizes.hybridHeaderLength, result.length, ciphertext);
 
-    // Write salt
-    result.setRange(offset, offset + salt.length, salt);
-    offset += salt.length;
-
-    // Write IV
-    result.setRange(offset, offset + iv.length, iv);
-    offset += iv.length;
-    
-    // Write ciphertext
-    result.setRange(offset, offset + ciphertext.length, ciphertext);
-    
     return result;
   }
   
-  /// Decrypt data using ECDH + AES hybrid decryption
-  /// 
+  /// Decrypt data addressed to [recipient] using ECDH + AES hybrid decryption
+  ///
+  /// Requires the recipient's private key, so unlike [encrypt] this cannot be
+  /// done with a public-only key pair.
+  ///
   /// Process:
-  /// 1. Extract ephemeral public key, IV, and ciphertext
-  /// 2. Perform ECDH key agreement with ephemeral public key
+  /// 1. Split the fixed header into ephemeral public key, salt and IV
+  /// 2. Perform ECDH key agreement with the ephemeral public key
   /// 3. Derive AES key from shared secret using HKDF
   /// 4. Decrypt data with AES-GCM
-  static Future<Uint8List> decrypt(Uint8List data, KeyDuo keyDuo) async {
-    final EcdhPrivateKey? privateKey = keyDuo.encryption.privateKey;
+  ///
+  /// Every field is at a constant offset, so there is no length to parse and
+  /// no attacker-controlled size to bound.
+  ///
+  /// Throws [StateError] if [recipient] is a public-only key pair.
+  /// Throws [FormatException] if [data] is too short to be well formed or the
+  /// embedded ephemeral key is not a valid P-256 point.
+  static Future<Uint8List> decrypt(
+      Uint8List data, EncryptionKeyPair recipient) async {
+    final EcdhPrivateKey? privateKey = recipient.privateKey;
     if (privateKey == null) {
-      throw StateError('Cannot decrypt: KeyDuo has no private key');
+      throw StateError('Cannot decrypt: public-only encryption key pair');
     }
-    
-    final int minLength = CryptoSizes.lengthPrefixSize + 1 + CryptoSizes.hkdfSaltLength + CryptoSizes.aesGcmIvLength;
+
+    final int minLength =
+        CryptoSizes.hybridHeaderLength + CryptoSizes.aesGcmTagLength;
     if (data.length < minLength) {
-      throw ArgumentError('Encrypted data too short');
+      throw FormatException(
+        'Encrypted data must be at least $minLength bytes '
+        '(got ${data.length})',
+      );
     }
 
-    int offset = 0;
+    // 1. Split the fixed-size header. importPublicKeyRaw enforces the 04 tag
+    //    and rejects points that are not on P-256.
+    final EncryptionKeyPair ephemeral = await EncryptionKeyPair.importPublicKeyRaw(
+      Uint8List.sublistView(data, 0, _saltOffset));
+    final Uint8List salt = Uint8List.sublistView(data, _saltOffset, _ivOffset);
+    final Uint8List iv =
+        Uint8List.sublistView(data, _ivOffset, CryptoSizes.hybridHeaderLength);
+    final Uint8List ciphertext =
+        Uint8List.sublistView(data, CryptoSizes.hybridHeaderLength);
 
-    // 1. Read ephemeral key length
-    final int ephemeralKeyLength = _bytesToUint32(data.sublist(offset, offset + CryptoSizes.lengthPrefixSize));
-    offset += CryptoSizes.lengthPrefixSize;
+    // 2. Perform ECDH key agreement
+    final Uint8List sharedSecret =
+        await privateKey.deriveBits(256, ephemeral.publicKey);
 
-    if (ephemeralKeyLength > CryptoSizes.maxEphemeralKeyLength) {
-      throw ArgumentError('Ephemeral key too large');
-    }
-
-    if (data.length < offset + ephemeralKeyLength + CryptoSizes.hkdfSaltLength + CryptoSizes.aesGcmIvLength) {
-      throw ArgumentError('Invalid encrypted data format');
-    }
-
-    // 2. Read and import ephemeral public key
-    final Uint8List ephemeralKeyBytes = data.sublist(offset, offset + ephemeralKeyLength);
-    offset += ephemeralKeyLength;
-
-    final Map<String, dynamic> rawEphemeralJwk = jsonDecode(utf8.decode(ephemeralKeyBytes)) as Map<String, dynamic>;
-
-    // Strip to minimal public fields before importing — never pass untrusted extra fields
-    final Map<String, dynamic> ephemeralPublicJwk = ValidationService.extractPublicKeyFields(rawEphemeralJwk);
-
-    if (ephemeralPublicJwk['kty'] != JwkKeyType.ec || ephemeralPublicJwk['crv'] != JwkCurve.p256) {
-      throw ArgumentError('Ephemeral key must be EC P-256');
-    }
-
-    final EcdhPublicKey ephemeralPublicKey = await EcdhPublicKey.importJsonWebKey(
-      ephemeralPublicJwk, EllipticCurve.p256);
-
-    // 3. Read salt
-    final Uint8List salt = data.sublist(offset, offset + CryptoSizes.hkdfSaltLength);
-    offset += CryptoSizes.hkdfSaltLength;
-
-    // 4. Read IV
-    final Uint8List iv = data.sublist(offset, offset + CryptoSizes.aesGcmIvLength);
-    offset += CryptoSizes.aesGcmIvLength;
-
-    // 5. Read ciphertext
-    final Uint8List ciphertext = data.sublist(offset);
-
-    // 6. Perform ECDH key agreement
-    final Uint8List sharedSecret = await privateKey.deriveBits(256, ephemeralPublicKey);
-
-    // 7. Derive AES key from shared secret with salt
+    // 3. Derive AES key from shared secret with the transmitted salt
     final AesGcmSecretKey aesKey = await _deriveAesKey(sharedSecret, salt);
 
-    // 8. Decrypt with AES-GCM
+    // 4. Decrypt with AES-GCM. Authentication covers the ciphertext, and the
+    //    salt and IV are covered in effect: altering either yields a key or
+    //    nonce under which the tag cannot verify.
     return await aesKey.decryptBytes(ciphertext, iv);
   }
   
-  /// Sign data with KeyDuo's signing key
-  static Future<Uint8List> sign(Uint8List data, KeyDuo keyDuo) async {
-    return await keyDuo.signingKeyPair.signBytes(data);
+  /// Sign data with [signer]'s private key
+  ///
+  /// Throws [StateError] if [signer] is a public-only key pair.
+  static Future<Uint8List> sign(Uint8List data, SigningKeyPair signer) async {
+    return await signer.signBytes(data);
   }
-  
-  /// Verify signature with KeyDuo's signing key
-  static Future<bool> verifySignature(Uint8List data, Uint8List signature, KeyDuo keyDuo) async {
-    return await keyDuo.signingKeyPair.verifyBytes(signature, data);
+
+  /// Verify a signature with [verifier]'s public key
+  ///
+  /// Only the public key is used, so [verifier] may be a public-only key pair.
+  static Future<bool> verifySignature(
+      Uint8List data, Uint8List signature, SigningKeyPair verifier) async {
+    return await verifier.verifyBytes(signature, data);
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
@@ -176,9 +172,15 @@ class CryptoService {
   }
   
   /// Decrypt data with symmetric key
+  ///
+  /// Throws [FormatException] if [data] is too short to be well formed.
   static Future<Uint8List> decryptSymmetric(Uint8List data, SymmetricKey symmetricKey) async {
-    if (data.length < CryptoSizes.aesGcmIvLength) {
-      throw ArgumentError('Ciphertext too short to contain IV');
+    final int minLength =
+        CryptoSizes.aesGcmIvLength + CryptoSizes.aesGcmTagLength;
+    if (data.length < minLength) {
+      throw FormatException(
+        'Encrypted data must be at least $minLength bytes (got ${data.length})',
+      );
     }
 
     final Uint8List iv = data.sublist(0, CryptoSizes.aesGcmIvLength);
@@ -191,33 +193,44 @@ class CryptoService {
   // Convenience Methods (String-based)
   // ═══════════════════════════════════════════════════════════════════════════
   
-  /// Encrypt string using ECDH + AES, return base64
-  static Future<String> encryptString(String data, KeyDuo keyDuo) async {
+  /// Encrypt a string to [recipient] using ECDH + AES, return base64
+  ///
+  /// Ciphertext is base64 rather than hex because it is variable-length binary;
+  /// hex is reserved for fixed-width values (public keys, signatures).
+  static Future<String> encryptString(
+      String data, EncryptionKeyPair recipient) async {
     final Uint8List dataBytes = utf8.encode(data);
-    final Uint8List encryptedBytes = await encrypt(dataBytes, keyDuo);
+    final Uint8List encryptedBytes = await encrypt(dataBytes, recipient);
     return base64.encode(encryptedBytes);
   }
-  
-  /// Decrypt base64 string using ECDH + AES
-  static Future<String> decryptString(String base64Data, KeyDuo keyDuo) async {
+
+  /// Decrypt a base64 string addressed to [recipient] using ECDH + AES
+  ///
+  /// Throws [StateError] if [recipient] is a public-only key pair.
+  static Future<String> decryptString(
+      String base64Data, EncryptionKeyPair recipient) async {
     final Uint8List encryptedBytes = base64.decode(base64Data);
-    final Uint8List decryptedBytes = await decrypt(encryptedBytes, keyDuo);
+    final Uint8List decryptedBytes = await decrypt(encryptedBytes, recipient);
     return utf8.decode(decryptedBytes);
   }
-  
-  /// Sign string, return hex signature
-  static Future<String> signString(String data, KeyDuo keyDuo) async {
+
+  /// Sign a string with [signer], returning the signature as 128-char hex
+  static Future<String> signString(String data, SigningKeyPair signer) async {
     final Uint8List dataBytes = utf8.encode(data);
-    final Uint8List signatureBytes = await sign(dataBytes, keyDuo);
-    return signatureBytes.map((int b) => b.toRadixString(16).padLeft(2, '0')).join();
+    return HexCodec.encode(await sign(dataBytes, signer));
   }
-  
-  /// Verify hex signature
-  static Future<bool> verifySignatureString(String data, String signatureHex, KeyDuo keyDuo) async {
-    final Uint8List signatureBytes = ValidationService.parseValidatedHex(
-      signatureHex, expectedLength: CryptoSizes.ecdsaP256SignatureLength * 2);
+
+  /// Verify a 128-char hex signature with [verifier]
+  ///
+  /// Throws [FormatException] if [signatureHex] is not 128 hex characters.
+  static Future<bool> verifySignatureString(
+      String data, String signatureHex, SigningKeyPair verifier) async {
+    final Uint8List signatureBytes = HexCodec.decode(
+      signatureHex,
+      expectedLength: CryptoSizes.ecdsaP256SignatureLength * 2,
+    );
     final Uint8List dataBytes = utf8.encode(data);
-    return await verifySignature(dataBytes, signatureBytes, keyDuo);
+    return await verifySignature(dataBytes, signatureBytes, verifier);
   }
   
   // ═══════════════════════════════════════════════════════════════════════════
@@ -252,19 +265,10 @@ class CryptoService {
     fillRandomBytes(iv);
     return iv;
   }
-  
-  /// Convert uint32 to 4 bytes (big-endian)
-  static Uint8List _uint32ToBytes(int value) {
-    final Uint8List bytes = Uint8List(4);
-    bytes[0] = (value >> 24) & 0xFF;
-    bytes[1] = (value >> 16) & 0xFF;
-    bytes[2] = (value >> 8) & 0xFF;
-    bytes[3] = value & 0xFF;
-    return bytes;
-  }
-  
-  /// Convert 4 bytes to uint32 (big-endian)
-  static int _bytesToUint32(Uint8List bytes) {
-    return (bytes[0] << 24) | (bytes[1] << 16) | (bytes[2] << 8) | bytes[3];
-  }
+
+  /// Byte offset of the HKDF salt within an encrypted blob.
+  static const int _saltOffset = CryptoSizes.ecP256Sec1PublicKeyLength;
+
+  /// Byte offset of the AES-GCM IV within an encrypted blob.
+  static const int _ivOffset = _saltOffset + CryptoSizes.hkdfSaltLength;
 }

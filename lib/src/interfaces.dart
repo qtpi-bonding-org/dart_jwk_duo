@@ -1,6 +1,7 @@
 /// Core interfaces for type-safe key pair management.
 library;
 
+import 'dart:typed_data';
 import 'package:webcrypto/webcrypto.dart';
 import 'exported_jwk.dart';
 
@@ -28,7 +29,30 @@ abstract class IKeyPair<TPrivate, TPublic> {
   
   /// Exports the public key as an ExportedJwk DTO.
   Future<ExportedJwk> exportPublicKey();
-  
+
+  /// Exports the public key as SEC1 uncompressed bytes.
+  ///
+  /// Always exactly 65 bytes: the `04` tag followed by the 32-byte x and
+  /// 32-byte y coordinates. Equivalent to WebCrypto's `"raw"` format.
+  ///
+  /// Declared here rather than on the concrete types so that every key pair
+  /// is guaranteed to offer the same encoding surface. A key pair type that
+  /// only speaks JWK forces its callers onto a different encoding from
+  /// everyone else, which is exactly how signing and encryption keys end up
+  /// stored in each other's fields.
+  Future<Uint8List> exportPublicKeyRaw();
+
+  /// Exports the public key as SEC1 uncompressed hex.
+  ///
+  /// Always exactly 130 lowercase hex characters beginning `04`, being the
+  /// hex of [exportPublicKeyRaw].
+  ///
+  /// The bytes carry no indication of whether this key is for signing or for
+  /// key agreement — a signing public key and an encryption public key of the
+  /// same curve are indistinguishable by inspection. Callers must carry
+  /// purpose in field names and types, never infer it from the value.
+  Future<String> exportPublicKeySec1Hex();
+
   /// Calculates the RFC 7638 JWK thumbprint for this key pair.
   /// 
   /// Returns a base64url-encoded SHA-256 hash of the canonical public key.

@@ -1,11 +1,11 @@
 name: dart_jwk_duo
-description: A thin, type-safe wrapper around package:webcrypto for managing a JWK Set containing exactly 2 RSA key pairs.
-version: 1.0.0
+description: A thin, type-safe wrapper around package:webcrypto for managing a JWK Set containing exactly 2 EC P-256 key pairs (ECDSA signing + ECDH encryption).
+version: 2.0.0
 homepage: https://github.com/yourusername/dart_jwk_duo
 repository: https://github.com/yourusername/dart_jwk_duo
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   webcrypto: ^0.6.0

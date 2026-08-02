@@ -9,6 +9,7 @@ import 'signing_key_pair.dart';
 import 'encryption_key_pair.dart';
 import 'constants.dart';
 import 'exported_jwk.dart';
+import 'public_key_hex.dart';
 import 'verification_service.dart';
 import 'validation_service.dart';
 
@@ -240,29 +241,57 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
     return keyDuo;
   }
 
-  /// Extract signing public key hex from JWK Set JSON.
-  /// 
-  /// Returns 128-char hex string (x + y coordinates, no 04 prefix).
-  /// This is the canonical way to derive an account identifier from a KeyDuo JWK.
-  /// 
-  /// The hex is derived by:
-  /// 1. Importing the JWK Set via webcrypto (validates the key)
-  /// 2. Exporting the signing public key as raw bytes
-  /// 3. Converting to lowercase hex (no 04 prefix)
-  /// 
-  /// This goes through the full webcrypto import/export path to ensure
-  /// the hex matches what [SigningKeyPair.exportPublicKeyHex] produces.
-  /// 
-  /// Throws [FormatException] if JWK is invalid or missing signing key.
-  static Future<String> extractSigningPublicKeyHex(String jwkSetJson) async {
-    // Extract only public fields — never hold private key material in memory
+  /// Extract the signing public key from JWK Set JSON as SEC1 hex.
+  ///
+  /// Returns a 130-char SEC1 uncompressed hex string (`04 || x || y`).
+  /// This is the canonical way to derive an account identifier from a
+  /// KeyDuo JWK.
+  ///
+  /// Throws [FormatException] if the JWK is invalid or has no signing key.
+  static Future<SigningPublicKeyHex> extractSigningPublicKeySec1Hex(
+      String jwkSetJson) async {
+    final KeyDuo keyDuo = await _importPublicKeyDuoForExtraction(jwkSetJson);
+    return await keyDuo.signingKeyPair.exportPublicKeySec1Hex();
+  }
+
+  /// Extract the encryption public key from JWK Set JSON as SEC1 hex.
+  ///
+  /// Returns a 130-char SEC1 uncompressed hex string (`04 || x || y`) — the
+  /// same encoding as [extractSigningPublicKeySec1Hex], so the two are
+  /// interchangeable at the encoding boundary and only distinguishable by
+  /// which method produced them.
+  ///
+  /// Throws [FormatException] if the JWK is invalid or has no encryption key.
+  static Future<EncryptionPublicKeyHex> extractEncryptionPublicKeySec1Hex(
+      String jwkSetJson) async {
+    final KeyDuo keyDuo = await _importPublicKeyDuoForExtraction(jwkSetJson);
+    return await keyDuo.encryptionKeyPair.exportPublicKeySec1Hex();
+  }
+
+  /// Extract both public keys from JWK Set JSON as a typed [PublicKeyDuo].
+  ///
+  /// Prefer this over the two single-key extractors when you need both, so
+  /// the pair cannot be assembled with the keys transposed.
+  ///
+  /// Throws [FormatException] if the JWK is invalid or missing either key.
+  static Future<PublicKeyDuo> extractPublicKeyDuo(String jwkSetJson) async {
+    final KeyDuo keyDuo = await _importPublicKeyDuoForExtraction(jwkSetJson);
+    return await keyDuo.exportPublicKeyDuo();
+  }
+
+  /// Import a public-only KeyDuo for hex extraction.
+  ///
+  /// Goes through the full webcrypto import path so the extracted hex is
+  /// guaranteed to match what the key pair's own export produces, and strips
+  /// private fields first so no private key material is ever held in memory.
+  static Future<KeyDuo> _importPublicKeyDuoForExtraction(
+      String jwkSetJson) async {
     final Map<String, dynamic> jwkSet = jsonDecode(jwkSetJson) as Map<String, dynamic>;
     final Map<String, dynamic> publicJwkSet = ValidationService.extractPublicKeySet(jwkSet);
 
-    const serializer = KeyDuoSerializer();
-    final KeyDuo keyDuo;
+    const KeyDuoSerializer serializer = KeyDuoSerializer();
     try {
-      keyDuo = await serializer._importKeyDuoFromMap(
+      return await serializer._importKeyDuoFromMap(
         publicJwkSet,
         requirePrivateKeys: false,
       );
@@ -270,8 +299,5 @@ class KeyDuoSerializer implements IKeyDuoSerializer {
       if (e is FormatException) rethrow;
       throw FormatException('Invalid JWK Set: $e');
     }
-    
-    // Use the concrete SigningKeyPair's exportPublicKeyHex()
-    return await keyDuo.signingKeyPair.exportPublicKeyHex();
   }
 }

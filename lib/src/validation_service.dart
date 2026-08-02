@@ -2,7 +2,6 @@
 library;
 
 import 'dart:convert';
-import 'dart:typed_data';
 import 'constants.dart';
 
 /// Service for structural JWK validation (format checks only)
@@ -290,32 +289,5 @@ class ValidationService {
     }
 
     validateSymmetricKeyJwk(keyData);
-  }
-
-  /// Validate and parse a hex string into bytes.
-  ///
-  /// Checks that the string has the expected length and only contains
-  /// valid hex characters ([0-9a-fA-F]).
-  ///
-  /// [hex] - The hex string to validate
-  /// [expectedLength] - The exact number of hex characters expected
-  ///
-  /// Returns the parsed bytes as [Uint8List].
-  /// Throws [ArgumentError] if validation fails.
-  static Uint8List parseValidatedHex(String hex, {required int expectedLength}) {
-    if (hex.length != expectedLength) {
-      throw ArgumentError('Hex must be $expectedLength characters (got ${hex.length})');
-    }
-
-    final RegExp hexPattern = RegExp(r'^[0-9a-fA-F]+$');
-    if (!hexPattern.hasMatch(hex)) {
-      throw ArgumentError('Hex contains invalid characters');
-    }
-
-    final Uint8List bytes = Uint8List(hex.length ~/ 2);
-    for (int i = 0; i < bytes.length; i++) {
-      bytes[i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
-    }
-    return bytes;
   }
 }

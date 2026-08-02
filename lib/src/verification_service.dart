@@ -10,29 +10,37 @@ import 'encryption_key_pair.dart';
 import 'symmetric_key.dart';
 import 'crypto_service.dart';
 import 'key_duo_serializer.dart';
+import 'public_key_hex.dart';
 
 /// Service for cryptographic verification (roundtrip tests)
 /// 
 /// Performs actual cryptographic operations to verify that keys work correctly.
 /// Use ValidationService for structural checks before verification.
 class VerificationService {
-  /// Verify a signature using only a public key hex string.
-  /// 
+  /// Verify a signature using only a SEC1 public key hex string.
+  ///
   /// Imports the public key from hex and verifies the signature in one call.
-  /// 
+  ///
   /// Parameters:
-  /// - [publicKeyHex]: 128-char hex string of the ECDSA P-256 public key
+  /// - [publicKeySec1Hex]: SEC1 hex of the ECDSA P-256 **signing** public key.
+  ///   Typed as [SigningPublicKeyHex] so an encryption key cannot be passed
+  ///   here — the bytes alone could not tell them apart, and the mistake would
+  ///   surface only as a silent verification failure.
   /// - [signature]: The signature bytes to verify
   /// - [data]: The original data that was signed
-  /// 
+  ///
   /// Returns `true` if the signature is valid, `false` otherwise.
-  /// Throws [ArgumentError] if publicKeyHex is not 128 characters.
-  static Future<bool> verifySignatureWithPublicKeyHex({
-    required String publicKeyHex,
+  ///
+  /// Throws [FormatException] if [publicKeySec1Hex] is not a valid SEC1
+  /// P-256 point. A malformed key is a caller error and is reported as one
+  /// rather than being folded into a `false` result.
+  static Future<bool> verifySignatureWithPublicKeySec1Hex({
+    required SigningPublicKeyHex publicKeySec1Hex,
     required Uint8List signature,
     required Uint8List data,
   }) async {
-    final SigningKeyPair keyPair = await SigningKeyPair.importPublicKeyHex(publicKeyHex);
+    final SigningKeyPair keyPair =
+        await SigningKeyPair.importPublicKeySec1Hex(publicKeySec1Hex);
     return await keyPair.verifyBytes(signature, data);
   }
 
@@ -92,18 +100,9 @@ class VerificationService {
     try {
       final Uint8List testMessage = Uint8List.fromList('dart-jwk-duo-verify-enc'.codeUnits);
 
-      // Build a temporary KeyDuo to test through the real CryptoService path.
-      final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) tempSigningKey =
-          await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
-      final SigningKeyPair tempSigning = SigningKeyPair(
-        privateKey: tempSigningKey.privateKey,
-        publicKey: tempSigningKey.publicKey,
-      );
-      final KeyDuo tempKeyDuo = KeyDuo(signing: tempSigning, encryption: keyPair);
-
       // Run the full CryptoService encrypt/decrypt roundtrip
-      final Uint8List encrypted = await CryptoService.encrypt(testMessage, tempKeyDuo);
-      final Uint8List decrypted = await CryptoService.decrypt(encrypted, tempKeyDuo);
+      final Uint8List encrypted = await CryptoService.encrypt(testMessage, keyPair);
+      final Uint8List decrypted = await CryptoService.decrypt(encrypted, keyPair);
 
       if (testMessage.length != decrypted.length) return false;
       for (int i = 0; i < testMessage.length; i++) {

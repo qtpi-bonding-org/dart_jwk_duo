@@ -6,6 +6,11 @@ library dart_jwk_duo;
 export 'src/constants.dart';
 export 'src/key_id_formatting.dart';
 
+// Encoding — the single hex and public key encoding used throughout
+export 'src/hex_codec.dart';
+export 'src/sec1_public_key.dart';
+export 'src/public_key_hex.dart';
+
 // Core interfaces and DTOs
 export 'src/interfaces.dart';
 export 'src/exported_jwk.dart';

@@ -7,7 +7,8 @@ import 'interfaces.dart';
 import 'exported_jwk.dart';
 import 'constants.dart';
 import 'jwk_thumbprint.dart';
-import 'validation_service.dart';
+import 'public_key_hex.dart';
+import 'sec1_public_key.dart';
 
 /// Type-safe wrapper for ECDSA P-256 signing key pairs.
 /// 
@@ -34,23 +35,34 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
   // Static Import Methods
   // ═══════════════════════════════════════════════════════════════════════════
 
-  /// Import a public-only SigningKeyPair from a 128-char hex string.
-  /// 
-  /// The hex string should be 128 characters (64 bytes = x + y coordinates).
-  /// This is the inverse of [exportPublicKeyHex].
-  /// 
-  /// Use case: Verify signatures when you only have the public key hex.
-  static Future<SigningKeyPair> importPublicKeyHex(String hex) async {
-    final Uint8List coordinateBytes = ValidationService.parseValidatedHex(
-      hex, expectedLength: CryptoSizes.ecP256PublicKeyHexLength);
+  /// Import a public-only SigningKeyPair from SEC1 uncompressed hex.
+  ///
+  /// Takes a [SigningPublicKeyHex] rather than a bare `String` so that an
+  /// encryption key cannot be imported here by accident — the two are
+  /// byte-indistinguishable, so the type is the only thing that can tell them
+  /// apart. Wrap a value read from storage explicitly:
+  /// `SigningPublicKeyHex(hexFromDatabase)`.
+  ///
+  /// This is the inverse of [exportPublicKeySec1Hex].
+  ///
+  /// Use case: verify signatures when all you have is the public key hex.
+  ///
+  /// Throws [FormatException] if the bytes do not describe a point on P-256.
+  static Future<SigningKeyPair> importPublicKeySec1Hex(
+      SigningPublicKeyHex sec1Hex) async {
+    return importPublicKeyRaw(Sec1PublicKey.decodeHex(sec1Hex.value));
+  }
 
-    // Add 04 prefix for uncompressed point format
-    final Uint8List rawKey = Uint8List(CryptoSizes.ecP256RawPublicKeyLength);
-    rawKey[0] = 0x04;
-    rawKey.setRange(1, CryptoSizes.ecP256RawPublicKeyLength, coordinateBytes);
-
+  /// Import a public-only SigningKeyPair from SEC1 uncompressed bytes.
+  ///
+  /// [raw] must be exactly 65 bytes: the `04` tag followed by the 32-byte x
+  /// and 32-byte y coordinates. This is the inverse of [exportPublicKeyRaw].
+  ///
+  /// Throws [FormatException] if the length or tag is wrong, or if the bytes
+  /// do not describe a point on P-256.
+  static Future<SigningKeyPair> importPublicKeyRaw(Uint8List raw) async {
     final EcdsaPublicKey publicKey = await EcdsaPublicKey.importRawKey(
-      rawKey, EllipticCurve.p256);
+      Sec1PublicKey.validateRaw(raw), EllipticCurve.p256);
 
     return SigningKeyPair.publicOnly(publicKey: publicKey);
   }
@@ -81,26 +93,26 @@ class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
     return await _publicKey.verifyBytes(signature, data, Hash.sha256);
   }
 
-  /// Export public key as raw bytes (65 bytes: 04 prefix + x + y).
-  Future<Uint8List> exportPublicKeyRaw() async {
-    return await _publicKey.exportRawKey();
-  }
-
-  /// Export public key as hex string (128 chars, no 04 prefix) for auth token.
-  Future<String> exportPublicKeyHex() async {
-    final Uint8List raw = await exportPublicKeyRaw();
-    if (raw.length != CryptoSizes.ecP256RawPublicKeyLength) {
-      throw StateError(
-        'Unexpected raw public key length: ${raw.length} (expected ${CryptoSizes.ecP256RawPublicKeyLength})');
-    }
-    // Skip the 04 prefix to get 64 bytes = 128 hex chars
-    final Uint8List bytes = raw.sublist(1);
-    return bytes.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
-  }
-
   // ═══════════════════════════════════════════════════════════════════════════
   // IKeyPair Implementation
   // ═══════════════════════════════════════════════════════════════════════════
+
+  @override
+  Future<Uint8List> exportPublicKeyRaw() async {
+    return Sec1PublicKey.validateRaw(await _publicKey.exportRawKey());
+  }
+
+  /// Export the public key as SEC1 uncompressed hex, typed as a signing key.
+  ///
+  /// Narrows [IKeyPair.exportPublicKeySec1Hex] from `String` to
+  /// [SigningPublicKeyHex]. Same 130 characters either way — the difference is
+  /// that the result cannot be assigned to a variable or parameter expecting
+  /// an encryption key.
+  @override
+  Future<SigningPublicKeyHex> exportPublicKeySec1Hex() async {
+    return SigningPublicKeyHex(
+      Sec1PublicKey.encodeHex(await exportPublicKeyRaw()));
+  }
 
   @override
   Future<ExportedJwk> exportPrivateKey() async {
