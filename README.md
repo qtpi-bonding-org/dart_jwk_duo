@@ -126,10 +126,10 @@ final keyDuo = await GenerationService.generateKeyDuo();
 
 // Export as JWK Set JSON (includes private keys)
 final serializer = KeyDuoSerializer();
-final jwkSetJson = await serializer.exportKeyDuo(keyDuo);
+final jwkSetJson = await serializer.exportKeyDuoJwk(keyDuo);
 
 // Export public keys only
-final publicJwkSetJson = await serializer.exportPublicKeyDuo(keyDuo);
+final publicJwkSetJson = await serializer.exportPublicKeyDuoJwk(keyDuo);
 ```
 
 ### Import Keys
@@ -137,10 +137,10 @@ final publicJwkSetJson = await serializer.exportPublicKeyDuo(keyDuo);
 ```dart
 // Import from JWK Set JSON
 final serializer = KeyDuoSerializer();
-final keyDuo = await serializer.importKeyDuo(jwkSetJson);
+final keyDuo = await serializer.importKeyDuoJwk(jwkSetJson);
 
 // Import public-only KeyDuo
-final publicKeyDuo = await serializer.importPublicKeyDuo(publicJwkSetJson);
+final publicKeyDuo = await serializer.importPublicKeyDuoJwk(publicJwkSetJson);
 ```
 
 ### Sign and Verify
@@ -223,7 +223,7 @@ final decrypted = await symmetricKey.internal.decryptBytes(encrypted, iv);
 ## Security Notes
 
 - **AES-GCM nonce limit**: Symmetric encryption uses random 96-bit IVs. Per NIST guidelines, do not exceed ~2^32 encryptions per key to keep collision probability negligible. Rotate keys before this limit.
-- **Exported key strings**: Dart strings are immutable and cannot be zeroed from memory. Minimize the lifetime of strings returned by `exportKeyDuo()` and `SymmetricKey.toJwk()`.
+- **Exported key strings**: Dart strings are immutable and cannot be zeroed from memory. Minimize the lifetime of strings returned by `exportKeyDuoJwk()` and `SymmetricKey.toJwk()`.
 
 ## Requirements
 
