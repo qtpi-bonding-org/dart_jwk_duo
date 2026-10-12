@@ -58,3 +58,4 @@ plan.md
 
 # Rust bridge build output
 rust/target/
+.verify-logs/
