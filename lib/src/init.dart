@@ -3,12 +3,23 @@ import 'dart:isolate';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart' show ExternalLibrary;
 import 'bridge/frb_generated.dart';
 
-bool _initialized = false;
+Future<void>? _init;
 
 /// Loads the native rust_jwk_duo library once. Every public entry point that
-/// touches the bridge awaits this first.
-Future<void> ensureInitialized() async {
-  if (_initialized) return;
+/// touches the bridge awaits this first. Concurrent first calls share one
+/// load; a failed load is not cached, so a later call retries.
+Future<void> ensureInitialized() => _init ??= _loadOnce();
+
+Future<void> _loadOnce() async {
+  try {
+    await _load();
+  } catch (_) {
+    _init = null;
+    rethrow;
+  }
+}
+
+Future<void> _load() async {
   final String? override = Platform.environment['DART_JWK_DUO_NATIVE_LIB'];
   if (override != null) {
     await JwkDuoRust.init(externalLibrary: ExternalLibrary.open(override));
@@ -19,7 +30,6 @@ Future<void> ensureInitialized() async {
   } else {
     await JwkDuoRust.init(); // packaged app: FRB's default loading (verified on iOS; Android unverified)
   }
-  _initialized = true;
 }
 
 File? _hookOutput() {
