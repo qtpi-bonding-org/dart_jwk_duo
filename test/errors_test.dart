@@ -35,7 +35,9 @@ void main() {
 
   test('a Rust-originated argument error maps to ArgumentError', () async {
     await expectLater(
-        calculateJwkThumbprint(<String, dynamic>{'crv': 'P-256'}), throwsArgumentError);
+        calculateJwkThumbprint(<String, dynamic>{'crv': 'P-256'}),
+        throwsA(isA<ArgumentError>().having(
+            (e) => e.message, 'message', contains('kty is required'))));
   });
 
   test('PublicKeyDuo with equal halves throws ArgumentError', () {
