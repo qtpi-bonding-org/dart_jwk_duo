@@ -79,8 +79,8 @@ void main() {
       for (int i = 0; i < keyDuoIterations; i++) {
         final KeyDuo keyDuo = await GenerationService.generateKeyDuo();
 
-        for (final MapEntry<String, IKeyPair<Object?, Object?>> entry
-            in <String, IKeyPair<Object?, Object?>>{
+        for (final MapEntry<String, IKeyPair> entry
+            in <String, IKeyPair>{
           'signing': keyDuo.signingKeyPair,
           'encryption': keyDuo.encryptionKeyPair,
         }.entries) {
@@ -384,13 +384,13 @@ void main() {
         () async {
       // If either pair type ever loses a member, this stops compiling.
       final KeyDuo keyDuo = await GenerationService.generateKeyDuo();
-      final List<IKeyPair<Object?, Object?>> pairs =
-          <IKeyPair<Object?, Object?>>[
+      final List<IKeyPair> pairs =
+          <IKeyPair>[
         keyDuo.signingKeyPair,
         keyDuo.encryptionKeyPair,
       ];
 
-      for (final IKeyPair<Object?, Object?> pair in pairs) {
+      for (final IKeyPair pair in pairs) {
         expect((await pair.exportPublicKeySec1Hex()).length, equals(130));
         expect((await pair.exportPublicKeyRaw()).length, equals(65));
         expect(await pair.calculateKeyId(), isNotEmpty);

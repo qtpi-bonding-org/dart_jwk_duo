@@ -253,7 +253,15 @@ Regenerate the bridge with `flutter_rust_bridge_codegen generate` (`lib/src/brid
 code that does not compile). `rust/Cargo.lock` pins `libc` to 0.2.180: 0.2.190 breaks the
 `backtrace` crate on iOS targets.
 
-Tests: `dart test test/bridge_smoke_test.dart` on Dart 3.11 needs no extra flag for build hooks
+Tests: `dart test` runs the whole suite, including `test/conformance_test.dart`, which reads the shared
+vectors from the sibling repo (`JWK_DUO_CONFORMANCE_DIR`, default `../rust_jwk_duo/conformance`). Linux,
+with both repos mounted as siblings under `/src`:
+
+```bash
+docker run --rm -v /Users/aicoder/Documents/my-libs:/src -w /src/dart_jwk_duo dart:3.11 bash -c 'apt-get update && apt-get install -y curl build-essential && curl -sSf https://sh.rustup.rs | sh -s -- -y && . $HOME/.cargo/env && dart pub get && dart test'
+```
+
+`dart test test/bridge_smoke_test.dart` on Dart 3.11 needs no extra flag for build hooks
 (native assets are enabled by default); the loader finds the hook's output under `rust/target/native-assets/`
 or override with `DART_JWK_DUO_NATIVE_LIB`.
 

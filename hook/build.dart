@@ -3,18 +3,18 @@ import 'dart:io';
 import 'package:code_assets/code_assets.dart';
 import 'package:hooks/hooks.dart';
 
-const _libraryStem = 'dart_jwk_duo_bridge';
-const _assetName = 'src/bridge/frb_generated.dart';
+const String _libraryStem = 'dart_jwk_duo_bridge';
+const String _assetName = 'src/bridge/frb_generated.dart';
 
 void main(List<String> args) async {
-  await build(args, (input, output) async {
-    final code = input.config.code;
+  await build(args, (BuildInput input, BuildOutputBuilder output) async {
+    final CodeConfig code = input.config.code;
     if (!input.config.buildCodeAssets || !_isSupported(code.targetOS)) {
       return;
     }
-    final crateRoot = input.packageRoot.resolve('rust/');
-    final target = _cargoTarget(input, code.targetOS, code.targetArchitecture);
-    final targetDirectory = crateRoot.resolve('target/native-assets/$target/');
+    final Uri crateRoot = input.packageRoot.resolve('rust/');
+    final String target = _cargoTarget(input, code.targetOS, code.targetArchitecture);
+    final Uri targetDirectory = crateRoot.resolve('target/native-assets/$target/');
 
     final List<String> command;
     if (code.targetOS == OS.android) {
@@ -24,7 +24,7 @@ void main(List<String> args) async {
           '$_libraryStem for Android.',
         );
       }
-      command = [
+      command = <String>[
         'ndk',
         '-t',
         _androidAbi(code.targetArchitecture),
@@ -34,7 +34,7 @@ void main(List<String> args) async {
         targetDirectory.toFilePath(),
       ];
     } else {
-      command = [
+      command = <String>[
         'build',
         '--release',
         '--target',
@@ -43,7 +43,7 @@ void main(List<String> args) async {
         targetDirectory.toFilePath(),
       ];
     }
-    final build = await Process.start(
+    final Process build = await Process.start(
       'cargo',
       command,
       workingDirectory: crateRoot.toFilePath(),
@@ -52,7 +52,7 @@ void main(List<String> args) async {
     if (await build.exitCode != 0) {
       throw StateError('Failed to build $_libraryStem for $target.');
     }
-    final library = targetDirectory.resolve(
+    final Uri library = targetDirectory.resolve(
       '$target/release/${_libraryFileName(code.targetOS)}',
     );
     if (!File.fromUri(library).existsSync()) {
@@ -101,12 +101,12 @@ String _libraryFileName(OS os) =>
         : 'lib$_libraryStem.so';
 
 void _trackRustSources(BuildInput input, BuildOutputBuilder output) {
-  for (final rel in ['rust/', '../rust_jwk_duo/']) {
-    final dir = Directory.fromUri(input.packageRoot.resolve(rel));
+  for (final String rel in <String>['rust/', '../rust_jwk_duo/']) {
+    final Directory dir = Directory.fromUri(input.packageRoot.resolve(rel));
     if (!dir.existsSync()) continue;
-    for (final f in dir.listSync(recursive: true, followLinks: false)) {
+    for (final FileSystemEntity f in dir.listSync(recursive: true, followLinks: false)) {
       if (f is! File) continue;
-      final p = f.path;
+      final String p = f.path;
       if (p.contains('/target/') || p.contains('/.git/')) continue;
       if (p.endsWith('.rs') || p.endsWith('Cargo.toml') || p.endsWith('Cargo.lock')) {
         output.dependencies.add(f.uri);
