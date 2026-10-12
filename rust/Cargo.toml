@@ -7,7 +7,7 @@ edition = "2021"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
-rust_jwk_duo = { git = "https://github.com/qtpi-bonding-org/rust_jwk_duo", rev = "e62f1374adc7a624d9e80d2191403c0176e70aaa" }
+rust_jwk_duo = { git = "https://github.com/qtpi-bonding-org/rust_jwk_duo", rev = "489985d719539a6d8f841561728eb33cda82601e" }
 flutter_rust_bridge = "=2.11.1"
 serde_json = "1"
 # Direct pin: libc 0.2.190 breaks `backtrace` on the iOS targets, so Cargo.lock must keep 0.2.180.
