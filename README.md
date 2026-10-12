@@ -333,7 +333,7 @@ the vectors from `../rust_jwk_duo/conformance` (or `JWK_DUO_CONFORMANCE_DIR`) in
 `assets/conformance/` and exits non-zero if the source is missing or too few files were copied. Then
 `cd example/conformance_app && flutter test integration_test -d <device id>`.
 
-- **iOS simulator: passed** (iPhone 17 Pro, Flutter 3.47.2, Xcode 26.3): 384 cases ran and passed, 8 were
+- **iOS simulator: passed, re-verified 2026-10-12 after the HPKE string bridge functions were added** (iPhone 17 Pro, Flutter 3.47.2, Xcode 26.3): 384 cases ran and passed, 8 were
   skipped (`exported_jwk.check`, Rust-only), zero failures.
 - **Android emulator: NOT RUN** (no Android toolchain on the dev machine).
 
