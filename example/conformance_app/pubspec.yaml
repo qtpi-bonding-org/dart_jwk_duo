@@ -1,0 +1,26 @@
+name: conformance_app
+description: Runs the rust_jwk_duo conformance vectors through dart_jwk_duo on a mobile simulator/emulator.
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  dart_jwk_duo:
+    path: ../..
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  # Copies made by tool/copy_conformance.sh (gitignored); run it before building.
+  assets:
+    - assets/conformance/jwk_duo/
+    - assets/conformance/wycheproof/

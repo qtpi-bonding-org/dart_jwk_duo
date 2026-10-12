@@ -284,3 +284,15 @@ or override with `DART_JWK_DUO_NATIVE_LIB`.
 - **Android: UNVERIFIED, not run.** The dev machine has no Android toolchain (no adb, emulator,
   cargo-ndk or NDK). The Android branch of `hook/build.dart` exists per Task 18 but has never executed,
   and whether `JwkDuoRust.init()` finds `libdart_jwk_duo_bridge.so` is unknown.
+
+**Conformance on mobile (`example/conformance_app`).** A Flutter app whose `integration_test` runs the
+same 11 vector files as `test/conformance_test.dart` through `runConformance`, loading them from the
+asset bundle, and asserts the same per-file and total counts (a truncated asset set fails).
+Run `example/conformance_app/tool/copy_conformance.sh` first: it copies the vectors from
+`../rust_jwk_duo/conformance` (or `JWK_DUO_CONFORMANCE_DIR`) into the gitignored
+`assets/conformance/` and exits non-zero if the source is missing or too few files were copied. Then
+`cd example/conformance_app && flutter test integration_test -d <device id>`.
+
+- **iOS simulator: PASS** (2026-10-12, Flutter 3.47.2, Xcode 26.3, iPhone 17 Pro simulator):
+  384 cases run and passed, 8 skipped (`exported_jwk.check`, Rust-only), zero failures.
+- **Android emulator: NOT RUN** (no Android toolchain on the dev machine).
