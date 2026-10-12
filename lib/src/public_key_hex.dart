@@ -23,8 +23,7 @@ import 'sec1_public_key.dart';
 ///
 /// **What is and is not checked here.** The constructor is synchronous, so it
 /// validates the *encoding* — 130 hex characters, `04` tag — but cannot check
-/// that the point actually lies on P-256; that requires an async `webcrypto`
-/// import. Curve membership is enforced by
+/// that the point actually lies on P-256; that requires the native import. Curve membership is enforced by
 /// [SigningKeyPair.importPublicKeySec1Hex], which is where a key stops being
 /// a string and starts being a key. Holding a [SigningPublicKeyHex] therefore
 /// means "well-formed, and declared to be a signing key", not "verified to be
@@ -46,7 +45,7 @@ extension type const SigningPublicKeyHex._(String value) implements String {
   }
 }
 
-/// A SEC1 public key hex string belonging to an **encryption** (ECDH) key.
+/// A SEC1 public key hex string belonging to an **encryption** (HPKE) key.
 ///
 /// The counterpart to [SigningPublicKeyHex]; see that type for why these
 /// exist, and for what the constructor does and does not check. The two are
@@ -127,7 +126,7 @@ class PublicKeyDuo {
   /// The signing (ECDSA) public key, SEC1 hex.
   final SigningPublicKeyHex signing;
 
-  /// The encryption (ECDH) public key, SEC1 hex.
+  /// The encryption (HPKE) public key, SEC1 hex.
   final EncryptionPublicKeyHex encryption;
 
   /// The JSON representation, with purpose stated in the field names.

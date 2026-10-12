@@ -9,10 +9,9 @@ import 'dart:typed_data';
 /// there is exactly one definition of what "hex" means: two lowercase digits
 /// per byte, no prefix, no separators, no whitespace.
 ///
-/// Malformed input throws [FormatException]. This is deliberate — it is the
-/// same exception `webcrypto` raises for a byte string that is well formed
-/// but not a valid key, so callers can catch one type for every kind of
-/// bad encoding.
+/// Malformed input throws [FormatException], the same type every other
+/// encoding failure in this library raises, so callers can catch one type for
+/// every kind of bad encoding.
 class HexCodec {
   const HexCodec._();
 

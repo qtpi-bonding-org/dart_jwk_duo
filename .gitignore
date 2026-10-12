@@ -44,7 +44,7 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Python virtual environment (for webcrypto setup)
+# Python virtual environment
 venv/
 .venv/
 
@@ -52,7 +52,6 @@ venv/
 tmp
 plan.md
 .kiro/specs/
-webcrypto.dart/
 
 # Keep only essential Kiro steering files, exclude specs and settings
 .kiro/*

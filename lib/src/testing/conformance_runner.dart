@@ -220,7 +220,13 @@ Uint8List _b64(Map<String, dynamic> input, String k) {
 }
 
 /// Fixture hex: lenient on length, like the Rust runner's `hex()` helper.
-Uint8List _fixtureHex(String v) => HexCodec.decode(v, expectedLength: v.length);
+Uint8List _fixtureHex(String v) {
+  try {
+    return HexCodec.decode(v, expectedLength: v.length);
+  } on FormatException catch (e) {
+    throw _RunnerError('malformed hex in fixture: ${e.message}');
+  }
+}
 
 Future<Object?> _dispatch(String op, Map<String, dynamic> input) async {
   switch (op) {

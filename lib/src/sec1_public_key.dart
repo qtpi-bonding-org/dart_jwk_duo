@@ -17,17 +17,17 @@ import 'hex_codec.dart';
 /// it is meant for signing or for key agreement. Purpose must be carried by
 /// field names and types, never inferred from the bytes.
 ///
-/// Everything here throws [FormatException] on malformed input, matching what
-/// `webcrypto` throws for a well-formed byte string that is not a point on
-/// the curve.
+/// Everything here throws [FormatException] on malformed input, the same
+/// exception type the native import raises for a well-formed byte string that
+/// is not a point on the curve.
 class Sec1PublicKey {
   const Sec1PublicKey._();
 
   /// Validate that [raw] is a structurally well-formed SEC1 uncompressed point.
   ///
   /// Checks the byte length and the `04` tag only. Whether the point actually
-  /// lies on P-256 is not knowable here; that check happens inside
-  /// `webcrypto`/BoringSSL when the bytes are imported, and it does reject
+  /// lies on P-256 is not knowable here; that check happens in
+  /// rust_jwk_duo (p256) when the bytes are imported, and it does reject
   /// off-curve points.
   ///
   /// Returns [raw] unchanged so it can be used inline.

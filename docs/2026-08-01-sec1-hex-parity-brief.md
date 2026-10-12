@@ -1,3 +1,5 @@
+> Historical: describes dart_jwk_duo 2.x (WebCrypto); superseded by 3.0.
+
 # Brief: give `EncryptionKeyPair` the same hex surface as `SigningKeyPair`
 
 **Date:** 2026-08-01

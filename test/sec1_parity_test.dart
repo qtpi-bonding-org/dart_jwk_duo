@@ -536,7 +536,7 @@ void main() {
 
       await expectLater(
           CryptoService.decrypt(ciphertext, eavesdropper.encryptionKeyPair),
-          throwsA(anything),
+          throwsFormatException,
           reason: 'AES-GCM authentication must fail for the wrong key');
     });
 

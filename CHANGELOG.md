@@ -34,8 +34,8 @@ pushed and the dependency is pinned by git rev.
   native library loads asynchronously. Callers must `await` them: an un-awaited
   call silently drops the failure.
 - Symmetric keys are 256-bit only; 128-bit keys are rejected.
-- The Rust base64 decoder for ciphertext strings (`CryptoService::decrypt_string`) is strict. The Dart
-  `decryptString` still decodes with `dart:convert` before calling the engine, as in 2.x.
+- `decryptString` (on `CryptoService` and `KeyDuo`) accepts only padded standard base64: the URL-safe
+  alphabet and missing padding throw `FormatException`. Base64 encode and decode run in Rust.
 - Errors raised by the engine map to `FormatException`, `StateError` and `ArgumentError` as in 2.x.
 
 ### Removed
@@ -50,7 +50,7 @@ pushed and the dependency is pinned by git rev.
 ### Added
 
 - `ensureInitialized()` (loads the native library; every facade method also calls it), `dispose()` on
-  key objects, `HpkeConstants`, `JwkAlgorithm.hpke7`.
+  key objects, `JwkAlgorithm.hpke7`.
 - `package:dart_jwk_duo/testing.dart` (`runConformance`) and the shared conformance vectors, read from the
   sibling `rust_jwk_duo` repo (`test/conformance_test.dart`, `example/conformance_app`).
 
@@ -62,7 +62,7 @@ pushed and the dependency is pinned by git rev.
 4. Non-string JWK members give `FormatException`, not a raw `TypeError`.
 5. 128-bit symmetric keys are rejected.
 6. A private `d` that does not match `x`/`y` is rejected.
-7. `ExportedJwk` validation gives `FormatException`, not `TypeError`.
+7. `ExportedJwk` validation of `alg`/`use` gives `ArgumentError`, not `TypeError`; `toPublicOnly` gives `FormatException`.
 8. `validateNoPrivateKeyMaterial` rejects a non-list `keys` or a non-object key instead of passing.
 9. The public-key extractors report malformed JSON as `FormatException`.
 

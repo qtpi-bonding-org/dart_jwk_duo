@@ -1,6 +1,6 @@
 # Dart JWK Duo
 
-Type-safe P-256 key pairs (ES256 signing, HPKE encryption) and AES-256-GCM keys with a service-based API. All cryptography runs in [rust_jwk_duo](../rust_jwk_duo) through flutter_rust_bridge; secret key material stays in native handles. Platforms: macOS, Linux, iOS, Android.
+Type-safe P-256 key pairs (ES256 signing, HPKE encryption) and AES-256-GCM keys with a service-based API. All cryptography runs in [rust_jwk_duo](../rust_jwk_duo) through flutter_rust_bridge; secret key material stays in native handles. Platforms: macOS, Linux, iOS, Android (Linux and Android unverified).
 
 ## Key Types
 
@@ -239,7 +239,8 @@ call `dispose()` on `SigningKeyPair`, `EncryptionKeyPair`, `SymmetricKey` and `K
 
 Until `rust_jwk_duo` is pushed and `rust/Cargo.toml` pins it by git rev, `rust/Cargo.toml` uses a path
 dependency on the sibling checkout `../rust_jwk_duo`, so a consumer fetching this package from git
-cannot build it. Use a checkout with both repositories side by side.
+cannot build it. Use a checkout with both repositories side by side. At the git-rev switch, also drop the
+`../rust_jwk_duo/` entry that `hook/build.dart` tracks for rebuilds.
 
 ## Migrating from 2.x
 

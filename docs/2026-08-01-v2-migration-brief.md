@@ -1,3 +1,5 @@
+> Historical: describes dart_jwk_duo 2.x (WebCrypto); superseded by 3.0.
+
 # dart_jwk_duo 2.0.0 — what changed and what you must do
 
 **Date:** 2026-08-01
