@@ -39,11 +39,8 @@ class SigningKeyPair implements IKeyPair {
         rethrowAsDart(() => r.signingImportPublicRaw(raw: Sec1PublicKey.validateRaw(raw))));
   }
 
-  /// The SEC1 public key bytes, cached at creation.
-  Uint8List get cachedPublicRaw => _publicRaw;
-
   @override
-  bool get hasPrivateKey => r.signingHasPrivateKey(kp: _r);
+  bool get hasPrivateKey => rethrowAsDart(() => r.signingHasPrivateKey(kp: _r));
 
   /// Sign bytes with the private key. Returns a 64-byte P1363 `r || s`.
   ///
@@ -88,11 +85,14 @@ class SigningKeyPair implements IKeyPair {
 
   @override
   void dispose() => _r.dispose();
-
-  /// The native handle, for the facade's own services.
-  r.RSigningKeyPair get handle => _r;
 }
 
-/// Wraps a native signing handle. Internal: not exported from the barrel.
+/// Internal (the barrel exports only [SigningKeyPair]): the native handle.
+r.RSigningKeyPair signingHandleOf(SigningKeyPair k) => k._r;
+
+/// Internal: the cached public key bytes. The returned buffer is shared, never mutate it.
+Uint8List signingPublicRawOf(SigningKeyPair k) => k._publicRaw;
+
+/// Internal: wraps a native signing handle.
 SigningKeyPair signingKeyPairFromHandle(r.RSigningKeyPair h) =>
     SigningKeyPair._(h, Uint8List.fromList(r.signingPublicRaw(kp: h)));

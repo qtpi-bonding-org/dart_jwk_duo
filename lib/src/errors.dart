@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart'
+    show FrbException;
 import 'bridge/api.dart' as r;
 
 /// Every bridge call goes through here, so callers only ever see 2.x's
-/// exception types.
+/// exception types. Using a disposed key object, or a Rust panic, surfaces as
+/// [StateError] (a bug in the caller or the engine, never bad input).
 T rethrowAsDart<T>(T Function() call) {
   try {
     return call();
@@ -15,6 +18,9 @@ T rethrowAsDart<T>(T Function() call) {
       case r.RErrorKind.argument:
         throw ArgumentError(e.message);
     }
+  } on FrbException catch (e) {
+    // DroppableDisposedException (key object used after dispose()) and PanicException.
+    throw StateError('Native call failed: $e');
   }
 }
 

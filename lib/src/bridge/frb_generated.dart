@@ -65,7 +65,7 @@ class JwkDuoRust
   String get codegenVersion => '2.11.1';
 
   @override
-  int get rustContentHash => -1328367067;
+  int get rustContentHash => 2133359438;
 
   static const kDefaultExternalLibraryLoaderConfig =
       ExternalLibraryLoaderConfig(
@@ -103,8 +103,22 @@ abstract class JwkDuoRustApi extends BaseApi {
     required List<int> aad,
   });
 
+  String crateApiHpkeDecryptString({
+    required String b64,
+    required REncryptionKeyPair recipient,
+    required List<int> info,
+    required List<int> aad,
+  });
+
   Uint8List crateApiHpkeEncrypt({
     required List<int> data,
+    required REncryptionKeyPair recipient,
+    required List<int> info,
+    required List<int> aad,
+  });
+
+  String crateApiHpkeEncryptString({
+    required String data,
     required REncryptionKeyPair recipient,
     required List<int> info,
     required List<int> aad,
@@ -499,6 +513,42 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
   );
 
   @override
+  String crateApiHpkeDecryptString({
+    required String b64,
+    required REncryptionKeyPair recipient,
+    required List<int> info,
+    required List<int> aad,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(b64, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerREncryptionKeyPair(
+            recipient,
+            serializer,
+          );
+          sse_encode_list_prim_u_8_loose(info, serializer);
+          sse_encode_list_prim_u_8_loose(aad, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_r_error,
+        ),
+        constMeta: kCrateApiHpkeDecryptStringConstMeta,
+        argValues: [b64, recipient, info, aad],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiHpkeDecryptStringConstMeta => const TaskConstMeta(
+    debugName: "hpke_decrypt_string",
+    argNames: ["b64", "recipient", "info", "aad"],
+  );
+
+  @override
   Uint8List crateApiHpkeEncrypt({
     required List<int> data,
     required REncryptionKeyPair recipient,
@@ -516,7 +566,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
           );
           sse_encode_list_prim_u_8_loose(info, serializer);
           sse_encode_list_prim_u_8_loose(aad, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 11)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -535,13 +585,49 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
   );
 
   @override
+  String crateApiHpkeEncryptString({
+    required String data,
+    required REncryptionKeyPair recipient,
+    required List<int> info,
+    required List<int> aad,
+  }) {
+    return handler.executeSync(
+      SyncTask(
+        callFfi: () {
+          final serializer = SseSerializer(generalizedFrbRustBinding);
+          sse_encode_String(data, serializer);
+          sse_encode_Auto_Ref_RustOpaque_flutter_rust_bridgefor_generatedRustAutoOpaqueInnerREncryptionKeyPair(
+            recipient,
+            serializer,
+          );
+          sse_encode_list_prim_u_8_loose(info, serializer);
+          sse_encode_list_prim_u_8_loose(aad, serializer);
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
+        },
+        codec: SseCodec(
+          decodeSuccessData: sse_decode_String,
+          decodeErrorData: sse_decode_r_error,
+        ),
+        constMeta: kCrateApiHpkeEncryptStringConstMeta,
+        argValues: [data, recipient, info, aad],
+        apiImpl: this,
+      ),
+    );
+  }
+
+  TaskConstMeta get kCrateApiHpkeEncryptStringConstMeta => const TaskConstMeta(
+    debugName: "hpke_encrypt_string",
+    argNames: ["data", "recipient", "info", "aad"],
+  );
+
+  @override
   RDuoParts crateApiImportKeyDuoJwk({required String json}) {
     return handler.executeSync(
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(json, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 12)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_r_duo_parts,
@@ -564,7 +650,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(json, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 13)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_r_duo_parts,
@@ -590,7 +676,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(jwkJson, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 14)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -620,7 +706,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             serializer,
           );
           sse_encode_list_prim_u_8_loose(data, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 15)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -643,7 +729,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_list_prim_u_8_loose(der, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 16)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -666,7 +752,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_list_prim_u_8_loose(sig, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 17)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -692,7 +778,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             kp,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 18)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -721,7 +807,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             kp,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 19)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -750,7 +836,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             kp,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 20)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -776,7 +862,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_list_prim_u_8_loose(raw, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 21)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -806,7 +892,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             kp,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 22)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 24)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -832,7 +918,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             kp,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 23)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -864,7 +950,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             serializer,
           );
           sse_encode_list_prim_u_8_loose(aad, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 24)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -898,7 +984,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             serializer,
           );
           sse_encode_list_prim_u_8_loose(aad, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 25)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 27)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_list_prim_u_8_strict,
@@ -923,7 +1009,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(json, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 26)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 28)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -946,7 +1032,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
       SyncTask(
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 27)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 29)!;
         },
         codec: SseCodec(
           decodeSuccessData:
@@ -973,7 +1059,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             k,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 28)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_String,
@@ -1000,7 +1086,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(keyJson, serializer);
           sse_encode_bool(requirePrivate, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 29)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1026,7 +1112,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(setJson, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 30)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 32)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1051,7 +1137,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(setJson, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 31)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 33)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1077,7 +1163,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(setJson, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 32)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 34)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1107,7 +1193,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(keyJson, serializer);
           sse_encode_bool(requirePrivate, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 33)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1132,7 +1218,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(keyJson, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 34)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 36)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1158,7 +1244,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
         callFfi: () {
           final serializer = SseSerializer(generalizedFrbRustBinding);
           sse_encode_String(json, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 35)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 37)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_unit,
@@ -1193,7 +1279,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
           );
           sse_encode_list_prim_u_8_loose(signature, serializer);
           sse_encode_list_prim_u_8_loose(data, serializer);
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 36)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 38)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1221,7 +1307,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             kp,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 37)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 39)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1250,7 +1336,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             kp,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 38)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 40)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,
@@ -1279,7 +1365,7 @@ class JwkDuoRustApiImpl extends JwkDuoRustApiImplPlatform
             k,
             serializer,
           );
-          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 39)!;
+          return pdeCallFfi(generalizedFrbRustBinding, serializer, funcId: 41)!;
         },
         codec: SseCodec(
           decodeSuccessData: sse_decode_bool,

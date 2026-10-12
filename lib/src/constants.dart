@@ -39,17 +39,6 @@ class JwkCurve {
   static const String p256 = 'P-256';
 }
 
-/// HPKE framing constants shared with rust_jwk_duo.
-class HpkeConstants {
-  const HpkeConstants._();
-
-  /// Version byte that prefixes every HPKE blob.
-  static const int versionV1 = 1;
-
-  /// Domain-separation prefix prepended to the caller's `info`.
-  static const String infoPrefix = 'rust_jwk_duo/hpke/v1\x00';
-}
-
 /// Cryptographic size constants (bytes unless noted)
 class CryptoSizes {
   const CryptoSizes._();

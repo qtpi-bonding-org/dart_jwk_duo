@@ -98,6 +98,30 @@ Uint8List hpkeDecrypt({
   aad: aad,
 );
 
+String hpkeEncryptString({
+  required String data,
+  required REncryptionKeyPair recipient,
+  required List<int> info,
+  required List<int> aad,
+}) => JwkDuoRust.instance.api.crateApiHpkeEncryptString(
+  data: data,
+  recipient: recipient,
+  info: info,
+  aad: aad,
+);
+
+String hpkeDecryptString({
+  required String b64,
+  required REncryptionKeyPair recipient,
+  required List<int> info,
+  required List<int> aad,
+}) => JwkDuoRust.instance.api.crateApiHpkeDecryptString(
+  b64: b64,
+  recipient: recipient,
+  info: info,
+  aad: aad,
+);
+
 RSymmetricKey symmetricGenerate() =>
     JwkDuoRust.instance.api.crateApiSymmetricGenerate();
 

@@ -24,7 +24,7 @@ class GenerationService {
   }
 }
 
-/// Wraps a bridge key duo. Internal: not exported from the barrel.
+/// Internal: wraps a bridge key duo (the barrel exports only [GenerationService]).
 KeyDuo keyDuoFromParts(r.RDuoParts parts) => KeyDuo(
       signing: signingKeyPairFromHandle(parts.signing),
       encryption: encryptionKeyPairFromHandle(parts.encryption),

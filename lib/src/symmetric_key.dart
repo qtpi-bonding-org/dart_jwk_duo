@@ -31,10 +31,10 @@ class SymmetricKey {
 
   /// Releases the native key handle. The key must not be used afterwards.
   void dispose() => _r.dispose();
-
-  /// The native handle, for the facade's own services.
-  r.RSymmetricKey get handle => _r;
 }
 
-/// Wraps a native symmetric handle. Internal: not exported from the barrel.
+/// Internal (the barrel exports only [SymmetricKey]): the native handle.
+r.RSymmetricKey symmetricHandleOf(SymmetricKey k) => k._r;
+
+/// Internal: wraps a native symmetric handle.
 SymmetricKey symmetricKeyFromHandle(r.RSymmetricKey h) => SymmetricKey._(h);

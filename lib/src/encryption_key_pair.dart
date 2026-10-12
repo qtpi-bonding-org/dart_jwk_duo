@@ -39,11 +39,8 @@ class EncryptionKeyPair implements IKeyPair {
         rethrowAsDart(() => r.encryptionImportPublicRaw(raw: Sec1PublicKey.validateRaw(raw))));
   }
 
-  /// The SEC1 public key bytes, cached at creation.
-  Uint8List get cachedPublicRaw => _publicRaw;
-
   @override
-  bool get hasPrivateKey => r.encryptionHasPrivateKey(kp: _r);
+  bool get hasPrivateKey => rethrowAsDart(() => r.encryptionHasPrivateKey(kp: _r));
 
   @override
   Future<Uint8List> exportPublicKeyRaw() async => Uint8List.fromList(_publicRaw);
@@ -73,11 +70,14 @@ class EncryptionKeyPair implements IKeyPair {
 
   @override
   void dispose() => _r.dispose();
-
-  /// The native handle, for the facade's own services.
-  r.REncryptionKeyPair get handle => _r;
 }
 
-/// Wraps a native encryption handle. Internal: not exported from the barrel.
+/// Internal (the barrel exports only [EncryptionKeyPair]): the native handle.
+r.REncryptionKeyPair encryptionHandleOf(EncryptionKeyPair k) => k._r;
+
+/// Internal: the cached public key bytes. The returned buffer is shared, never mutate it.
+Uint8List encryptionPublicRawOf(EncryptionKeyPair k) => k._publicRaw;
+
+/// Internal: wraps a native encryption handle.
 EncryptionKeyPair encryptionKeyPairFromHandle(r.REncryptionKeyPair h) =>
     EncryptionKeyPair._(h, Uint8List.fromList(r.encryptionPublicRaw(kp: h)));

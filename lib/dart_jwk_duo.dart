@@ -16,15 +16,15 @@ export 'src/exported_jwk.dart' show ExportedJwk;
 export 'src/init.dart' show ensureInitialized;
 
 // Key pair implementations
-export 'src/signing_key_pair.dart';
-export 'src/encryption_key_pair.dart';
+export 'src/signing_key_pair.dart' show SigningKeyPair;
+export 'src/encryption_key_pair.dart' show EncryptionKeyPair;
 
 // Key containers
-export 'src/key_duo.dart';
-export 'src/symmetric_key.dart';
+export 'src/key_duo.dart' show KeyDuo;
+export 'src/symmetric_key.dart' show SymmetricKey;
 
 // 4 Services - Clean separation of concerns
-export 'src/generation_service.dart';
+export 'src/generation_service.dart' show GenerationService;
 export 'src/validation_service.dart';
 export 'src/verification_service.dart';
 export 'src/crypto_service.dart';

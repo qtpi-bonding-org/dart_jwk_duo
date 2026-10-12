@@ -38,7 +38,7 @@ flutter_rust_bridge::frb_generated_boilerplate!(
     default_rust_auto_opaque = RustAutoOpaqueMoi,
 );
 pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_VERSION: &str = "2.11.1";
-pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = -1328367067;
+pub(crate) const FLUTTER_RUST_BRIDGE_CODEGEN_CONTENT_HASH: i32 = 2133359438;
 
 // Section: executor
 
@@ -448,6 +448,62 @@ fn wire__crate__api__hpke_decrypt_impl(
         },
     )
 }
+fn wire__crate__api__hpke_decrypt_string_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "hpke_decrypt_string",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_b64 = <String>::sse_decode(&mut deserializer);
+            let api_recipient = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<REncryptionKeyPair>,
+            >>::sse_decode(&mut deserializer);
+            let api_info = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_aad = <Vec<u8>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, crate::api::RError>((move || {
+                let mut api_recipient_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_recipient,
+                            0,
+                            false,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_recipient_guard = Some(api_recipient.lockable_decode_sync_ref()),
+                        _ => unreachable!(),
+                    }
+                }
+                let api_recipient_guard = api_recipient_guard.unwrap();
+                let output_ok = crate::api::hpke_decrypt_string(
+                    api_b64,
+                    &*api_recipient_guard,
+                    api_info,
+                    api_aad,
+                )?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
 fn wire__crate__api__hpke_encrypt_impl(
     ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
     rust_vec_len_: i32,
@@ -495,6 +551,62 @@ fn wire__crate__api__hpke_encrypt_impl(
                 let api_recipient_guard = api_recipient_guard.unwrap();
                 let output_ok =
                     crate::api::hpke_encrypt(api_data, &*api_recipient_guard, api_info, api_aad)?;
+                Ok(output_ok)
+            })())
+        },
+    )
+}
+fn wire__crate__api__hpke_encrypt_string_impl(
+    ptr_: flutter_rust_bridge::for_generated::PlatformGeneralizedUint8ListPtr,
+    rust_vec_len_: i32,
+    data_len_: i32,
+) -> flutter_rust_bridge::for_generated::WireSyncRust2DartSse {
+    FLUTTER_RUST_BRIDGE_HANDLER.wrap_sync::<flutter_rust_bridge::for_generated::SseCodec, _>(
+        flutter_rust_bridge::for_generated::TaskInfo {
+            debug_name: "hpke_encrypt_string",
+            port: None,
+            mode: flutter_rust_bridge::for_generated::FfiCallMode::Sync,
+        },
+        move || {
+            let message = unsafe {
+                flutter_rust_bridge::for_generated::Dart2RustMessageSse::from_wire(
+                    ptr_,
+                    rust_vec_len_,
+                    data_len_,
+                )
+            };
+            let mut deserializer =
+                flutter_rust_bridge::for_generated::SseDeserializer::new(message);
+            let api_data = <String>::sse_decode(&mut deserializer);
+            let api_recipient = <RustOpaqueMoi<
+                flutter_rust_bridge::for_generated::RustAutoOpaqueInner<REncryptionKeyPair>,
+            >>::sse_decode(&mut deserializer);
+            let api_info = <Vec<u8>>::sse_decode(&mut deserializer);
+            let api_aad = <Vec<u8>>::sse_decode(&mut deserializer);
+            deserializer.end();
+            transform_result_sse::<_, crate::api::RError>((move || {
+                let mut api_recipient_guard = None;
+                let decode_indices_ =
+                    flutter_rust_bridge::for_generated::lockable_compute_decode_order(vec![
+                        flutter_rust_bridge::for_generated::LockableOrderInfo::new(
+                            &api_recipient,
+                            0,
+                            false,
+                        ),
+                    ]);
+                for i in decode_indices_ {
+                    match i {
+                        0 => api_recipient_guard = Some(api_recipient.lockable_decode_sync_ref()),
+                        _ => unreachable!(),
+                    }
+                }
+                let api_recipient_guard = api_recipient_guard.unwrap();
+                let output_ok = crate::api::hpke_encrypt_string(
+                    api_data,
+                    &*api_recipient_guard,
+                    api_info,
+                    api_aad,
+                )?;
                 Ok(output_ok)
             })())
         },
@@ -1768,35 +1880,37 @@ fn pde_ffi_dispatcher_sync_impl(
         8 => wire__crate__api__format_version_impl(ptr, rust_vec_len, data_len),
         9 => wire__crate__api__generate_key_duo_impl(ptr, rust_vec_len, data_len),
         10 => wire__crate__api__hpke_decrypt_impl(ptr, rust_vec_len, data_len),
-        11 => wire__crate__api__hpke_encrypt_impl(ptr, rust_vec_len, data_len),
-        12 => wire__crate__api__import_key_duo_jwk_impl(ptr, rust_vec_len, data_len),
-        13 => wire__crate__api__import_public_key_duo_jwk_impl(ptr, rust_vec_len, data_len),
-        14 => wire__crate__api__jwk_thumbprint_impl(ptr, rust_vec_len, data_len),
-        15 => wire__crate__api__sign_bytes_impl(ptr, rust_vec_len, data_len),
-        16 => wire__crate__api__signature_from_der_impl(ptr, rust_vec_len, data_len),
-        17 => wire__crate__api__signature_to_der_impl(ptr, rust_vec_len, data_len),
-        18 => wire__crate__api__signing_export_private_jwk_impl(ptr, rust_vec_len, data_len),
-        19 => wire__crate__api__signing_export_public_jwk_impl(ptr, rust_vec_len, data_len),
-        20 => wire__crate__api__signing_has_private_key_impl(ptr, rust_vec_len, data_len),
-        21 => wire__crate__api__signing_import_public_raw_impl(ptr, rust_vec_len, data_len),
-        22 => wire__crate__api__signing_key_id_impl(ptr, rust_vec_len, data_len),
-        23 => wire__crate__api__signing_public_raw_impl(ptr, rust_vec_len, data_len),
-        24 => wire__crate__api__symmetric_decrypt_impl(ptr, rust_vec_len, data_len),
-        25 => wire__crate__api__symmetric_encrypt_impl(ptr, rust_vec_len, data_len),
-        26 => wire__crate__api__symmetric_from_jwk_impl(ptr, rust_vec_len, data_len),
-        27 => wire__crate__api__symmetric_generate_impl(ptr, rust_vec_len, data_len),
-        28 => wire__crate__api__symmetric_to_jwk_impl(ptr, rust_vec_len, data_len),
-        29 => wire__crate__api__validate_encryption_key_impl(ptr, rust_vec_len, data_len),
-        30 => wire__crate__api__validate_key_duo_jwk_impl(ptr, rust_vec_len, data_len),
-        31 => wire__crate__api__validate_key_duo_jwk_structure_impl(ptr, rust_vec_len, data_len),
-        32 => wire__crate__api__validate_no_private_key_material_impl(ptr, rust_vec_len, data_len),
-        33 => wire__crate__api__validate_signing_key_impl(ptr, rust_vec_len, data_len),
-        34 => wire__crate__api__validate_symmetric_key_jwk_impl(ptr, rust_vec_len, data_len),
-        35 => wire__crate__api__validate_symmetric_key_jwk_string_impl(ptr, rust_vec_len, data_len),
-        36 => wire__crate__api__verify_bytes_impl(ptr, rust_vec_len, data_len),
-        37 => wire__crate__api__verify_encryption_key_pair_impl(ptr, rust_vec_len, data_len),
-        38 => wire__crate__api__verify_signing_key_pair_impl(ptr, rust_vec_len, data_len),
-        39 => wire__crate__api__verify_symmetric_key_impl(ptr, rust_vec_len, data_len),
+        11 => wire__crate__api__hpke_decrypt_string_impl(ptr, rust_vec_len, data_len),
+        12 => wire__crate__api__hpke_encrypt_impl(ptr, rust_vec_len, data_len),
+        13 => wire__crate__api__hpke_encrypt_string_impl(ptr, rust_vec_len, data_len),
+        14 => wire__crate__api__import_key_duo_jwk_impl(ptr, rust_vec_len, data_len),
+        15 => wire__crate__api__import_public_key_duo_jwk_impl(ptr, rust_vec_len, data_len),
+        16 => wire__crate__api__jwk_thumbprint_impl(ptr, rust_vec_len, data_len),
+        17 => wire__crate__api__sign_bytes_impl(ptr, rust_vec_len, data_len),
+        18 => wire__crate__api__signature_from_der_impl(ptr, rust_vec_len, data_len),
+        19 => wire__crate__api__signature_to_der_impl(ptr, rust_vec_len, data_len),
+        20 => wire__crate__api__signing_export_private_jwk_impl(ptr, rust_vec_len, data_len),
+        21 => wire__crate__api__signing_export_public_jwk_impl(ptr, rust_vec_len, data_len),
+        22 => wire__crate__api__signing_has_private_key_impl(ptr, rust_vec_len, data_len),
+        23 => wire__crate__api__signing_import_public_raw_impl(ptr, rust_vec_len, data_len),
+        24 => wire__crate__api__signing_key_id_impl(ptr, rust_vec_len, data_len),
+        25 => wire__crate__api__signing_public_raw_impl(ptr, rust_vec_len, data_len),
+        26 => wire__crate__api__symmetric_decrypt_impl(ptr, rust_vec_len, data_len),
+        27 => wire__crate__api__symmetric_encrypt_impl(ptr, rust_vec_len, data_len),
+        28 => wire__crate__api__symmetric_from_jwk_impl(ptr, rust_vec_len, data_len),
+        29 => wire__crate__api__symmetric_generate_impl(ptr, rust_vec_len, data_len),
+        30 => wire__crate__api__symmetric_to_jwk_impl(ptr, rust_vec_len, data_len),
+        31 => wire__crate__api__validate_encryption_key_impl(ptr, rust_vec_len, data_len),
+        32 => wire__crate__api__validate_key_duo_jwk_impl(ptr, rust_vec_len, data_len),
+        33 => wire__crate__api__validate_key_duo_jwk_structure_impl(ptr, rust_vec_len, data_len),
+        34 => wire__crate__api__validate_no_private_key_material_impl(ptr, rust_vec_len, data_len),
+        35 => wire__crate__api__validate_signing_key_impl(ptr, rust_vec_len, data_len),
+        36 => wire__crate__api__validate_symmetric_key_jwk_impl(ptr, rust_vec_len, data_len),
+        37 => wire__crate__api__validate_symmetric_key_jwk_string_impl(ptr, rust_vec_len, data_len),
+        38 => wire__crate__api__verify_bytes_impl(ptr, rust_vec_len, data_len),
+        39 => wire__crate__api__verify_encryption_key_pair_impl(ptr, rust_vec_len, data_len),
+        40 => wire__crate__api__verify_signing_key_pair_impl(ptr, rust_vec_len, data_len),
+        41 => wire__crate__api__verify_symmetric_key_impl(ptr, rust_vec_len, data_len),
         _ => unreachable!(),
     }
 }

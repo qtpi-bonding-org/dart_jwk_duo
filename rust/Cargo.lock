@@ -316,6 +316,7 @@ name = "dart_jwk_duo_bridge"
 version = "3.0.0"
 dependencies = [
  "flutter_rust_bridge",
+ "libc",
  "rust_jwk_duo",
  "serde_json",
 ]
@@ -1009,7 +1010,6 @@ dependencies = [
  "getrandom",
  "hpke",
  "p256",
- "rand_core",
  "serde_json",
  "sha2",
  "thiserror",

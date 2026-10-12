@@ -43,19 +43,19 @@ class VerificationService {
   /// Sign/verify roundtrip. Throws [StateError] on a public-only key pair.
   static Future<bool> verifySigningKeyPair(SigningKeyPair keyPair) async {
     await ensureInitialized();
-    return rethrowAsDart(() => r.verifySigningKeyPair(kp: keyPair.handle));
+    return rethrowAsDart(() => r.verifySigningKeyPair(kp: signingHandleOf(keyPair)));
   }
 
   /// Encrypt/decrypt roundtrip. Throws [StateError] on a public-only key pair.
   static Future<bool> verifyEncryptionKeyPair(EncryptionKeyPair keyPair) async {
     await ensureInitialized();
-    return rethrowAsDart(() => r.verifyEncryptionKeyPair(kp: keyPair.handle));
+    return rethrowAsDart(() => r.verifyEncryptionKeyPair(kp: encryptionHandleOf(keyPair)));
   }
 
   /// Encrypt/decrypt roundtrip with a symmetric key.
   static Future<bool> verifySymmetricKey(SymmetricKey symmetricKey) async {
     await ensureInitialized();
-    return rethrowAsDart(() => r.verifySymmetricKey(k: symmetricKey.handle));
+    return rethrowAsDart(() => r.verifySymmetricKey(k: symmetricHandleOf(symmetricKey)));
   }
 
   /// Imports a private JWK Set and verifies it by cryptographic roundtrip.

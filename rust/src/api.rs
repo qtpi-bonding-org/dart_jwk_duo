@@ -57,6 +57,8 @@ fn json_object(s: &str) -> R<serde_json::Map<String, serde_json::Value>> {
 #[frb(sync)] pub fn encryption_export_public_jwk(kp: &REncryptionKeyPair) -> Result<String, RError> { Ok(jwk_string(kp.0.export_public_key()?)) }
 #[frb(sync)] pub fn hpke_encrypt(data: Vec<u8>, recipient: &REncryptionKeyPair, info: Vec<u8>, aad: Vec<u8>) -> Result<Vec<u8>, RError> { Ok(j::CryptoService::encrypt(&data, &recipient.0, &info, &aad)?) }
 #[frb(sync)] pub fn hpke_decrypt(data: Vec<u8>, recipient: &REncryptionKeyPair, info: Vec<u8>, aad: Vec<u8>) -> Result<Vec<u8>, RError> { Ok(j::CryptoService::decrypt(&data, &recipient.0, &info, &aad)?) }
+#[frb(sync)] pub fn hpke_encrypt_string(data: String, recipient: &REncryptionKeyPair, info: Vec<u8>, aad: Vec<u8>) -> Result<String, RError> { Ok(j::CryptoService::encrypt_string(&data, &recipient.0, &info, &aad)?) }
+#[frb(sync)] pub fn hpke_decrypt_string(b64: String, recipient: &REncryptionKeyPair, info: Vec<u8>, aad: Vec<u8>) -> Result<String, RError> { Ok(j::CryptoService::decrypt_string(&b64, &recipient.0, &info, &aad)?) }
 // symmetric
 #[frb(sync)] pub fn symmetric_generate() -> RSymmetricKey { RSymmetricKey(j::GenerationService::generate_symmetric_key()) }
 #[frb(sync)] pub fn symmetric_from_jwk(json: String) -> Result<RSymmetricKey, RError> { Ok(RSymmetricKey(j::SymmetricKey::from_jwk(&json)?)) }

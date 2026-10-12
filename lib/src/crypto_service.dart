@@ -31,7 +31,7 @@ class CryptoService {
     await ensureInitialized();
     return Uint8List.fromList(rethrowAsDart(() => r.hpkeEncrypt(
           data: data,
-          recipient: recipient.handle,
+          recipient: encryptionHandleOf(recipient),
           info: info ?? Uint8List(0),
           aad: aad ?? Uint8List(0),
         )));
@@ -51,7 +51,7 @@ class CryptoService {
     await ensureInitialized();
     return Uint8List.fromList(rethrowAsDart(() => r.hpkeDecrypt(
           data: data,
-          recipient: recipient.handle,
+          recipient: encryptionHandleOf(recipient),
           info: info ?? Uint8List(0),
           aad: aad ?? Uint8List(0),
         )));
@@ -77,7 +77,7 @@ class CryptoService {
       Uint8List data, SymmetricKey symmetricKey, {Uint8List? aad}) async {
     await ensureInitialized();
     return Uint8List.fromList(rethrowAsDart(() => r.symmetricEncrypt(
-        data: data, k: symmetricKey.handle, aad: aad ?? Uint8List(0))));
+        data: data, k: symmetricHandleOf(symmetricKey), aad: aad ?? Uint8List(0))));
   }
 
   /// Decrypts a blob produced by [encryptSymmetric].
@@ -88,7 +88,7 @@ class CryptoService {
       Uint8List data, SymmetricKey symmetricKey, {Uint8List? aad}) async {
     await ensureInitialized();
     return Uint8List.fromList(rethrowAsDart(() => r.symmetricDecrypt(
-        data: data, k: symmetricKey.handle, aad: aad ?? Uint8List(0))));
+        data: data, k: symmetricHandleOf(symmetricKey), aad: aad ?? Uint8List(0))));
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
@@ -102,14 +102,19 @@ class CryptoService {
     Uint8List? info,
     Uint8List? aad,
   }) async {
-    final Uint8List encryptedBytes =
-        await encrypt(utf8.encode(data), recipient, info: info, aad: aad);
-    return base64.encode(encryptedBytes);
+    await ensureInitialized();
+    return rethrowAsDart(() => r.hpkeEncryptString(
+          data: data,
+          recipient: encryptionHandleOf(recipient),
+          info: info ?? Uint8List(0),
+          aad: aad ?? Uint8List(0),
+        ));
   }
 
   /// Decrypts base64 produced by [encryptString] back to a string.
   ///
-  /// Throws as [decrypt] does; also [FormatException] for invalid base64 or
+  /// Throws as [decrypt] does; also [FormatException] for anything but padded
+  /// standard base64 (URL-safe alphabet and missing padding are rejected) or
   /// non-UTF-8 plaintext.
   static Future<String> decryptString(
     String base64Data,
@@ -117,10 +122,13 @@ class CryptoService {
     Uint8List? info,
     Uint8List? aad,
   }) async {
-    final Uint8List encryptedBytes = base64.decode(base64Data);
-    final Uint8List decryptedBytes =
-        await decrypt(encryptedBytes, recipient, info: info, aad: aad);
-    return utf8.decode(decryptedBytes);
+    await ensureInitialized();
+    return rethrowAsDart(() => r.hpkeDecryptString(
+          b64: base64Data,
+          recipient: encryptionHandleOf(recipient),
+          info: info ?? Uint8List(0),
+          aad: aad ?? Uint8List(0),
+        ));
   }
 
   /// Signs a UTF-8 string; returns the signature as hex.

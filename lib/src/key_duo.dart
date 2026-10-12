@@ -20,7 +20,7 @@ class KeyDuo implements IKeyDuo {
   /// Creates a new KeyDuo container.
   /// 
   /// [signing] - The signing key pair (ECDSA P-256)
-  /// [encryption] - The encryption key pair (ECDH P-256)
+  /// [encryption] - The encryption key pair (HPKE P-256)
   ///
   /// Throws [ArgumentError] if both halves have the same public key.
   KeyDuo({
@@ -28,7 +28,7 @@ class KeyDuo implements IKeyDuo {
     required EncryptionKeyPair encryption,
   }) : _signing = signing,
        _encryption = encryption {
-    if (_sameBytes(_signing.cachedPublicRaw, _encryption.cachedPublicRaw)) {
+    if (_sameBytes(signingPublicRawOf(_signing), encryptionPublicRawOf(_encryption))) {
       throw ArgumentError(
         'Signing and encryption public keys are identical. One key has been '
         'placed in both fields; they must come from different key pairs.',
@@ -120,9 +120,7 @@ class KeyDuo implements IKeyDuo {
   /// 
   /// Returns base64-encoded encrypted data.
   Future<String> encryptString(String data, {Uint8List? info, Uint8List? aad}) async {
-    final Uint8List dataBytes = utf8.encode(data);
-    final Uint8List encryptedBytes = await encrypt(dataBytes, info: info, aad: aad);
-    return base64.encode(encryptedBytes);
+    return await CryptoService.encryptString(data, _encryption, info: info, aad: aad);
   }
   
   /// Decrypt base64 string
@@ -131,11 +129,9 @@ class KeyDuo implements IKeyDuo {
   /// 
   /// [base64Data] - Base64-encoded encrypted data
   /// 
-  /// Returns decrypted string.
+  /// Returns decrypted string. Throws [FormatException] unless [base64Data] is padded standard base64.
   Future<String> decryptString(String base64Data, {Uint8List? info, Uint8List? aad}) async {
-    final Uint8List encryptedBytes = base64.decode(base64Data);
-    final Uint8List decryptedBytes = await decrypt(encryptedBytes, info: info, aad: aad);
-    return utf8.decode(decryptedBytes);
+    return await CryptoService.decryptString(base64Data, _encryption, info: info, aad: aad);
   }
   
   /// Sign string, return hex signature
