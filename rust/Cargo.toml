@@ -7,8 +7,8 @@ edition = "2021"
 crate-type = ["cdylib", "staticlib", "rlib"]
 
 [dependencies]
-# Path during development. Task 23 switches it to
-# git = "https://github.com/qtpi-bonding-org/rust_jwk_duo", rev = "<pushed rev>".
+# Path dependency on the sibling checkout. Git consumers cannot build this until
+# rust_jwk_duo is pushed and this is pinned as { git = "...", rev = "..." }.
 rust_jwk_duo = { path = "../../rust_jwk_duo" }
 flutter_rust_bridge = "=2.11.1"
 serde_json = "1"

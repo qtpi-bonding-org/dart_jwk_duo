@@ -8,6 +8,11 @@ Type-safe P-256 key pairs (ES256 signing, HPKE encryption) and AES-256-GCM keys 
 2. **EncryptionKeyPair** (P-256, JWK `alg` `HPKE-7`) - for HPKE (RFC 9180) encryption
 3. **SymmetricKey** (AES-256-GCM) - for data encryption
 
+Ciphertexts are HPKE (RFC 9180) but **not JWE**: the output is a library-specific blob
+(`0x01 || encapsulated key (65) || ciphertext || tag`), not a JOSE serialization, and a JWE library cannot
+open it. Only the key's `alg` name, `HPKE-7`, comes from JOSE (draft-ietf-jose-hpke-encrypt).
+The shared engine and format are documented in [rust_jwk_duo](../rust_jwk_duo).
+
 ## Features
 
 - **Type Safety**: Separate types for signing vs encryption keys prevent compile-time errors
@@ -225,22 +230,52 @@ final decrypted = await CryptoService.decryptSymmetric(encrypted, symmetricKey, 
 
 ## Requirements
 
-- Flutter SDK >=3.0.0
-- Dart SDK >=3.0.0
+- Dart SDK ^3.11.0 (see `pubspec.yaml`; tested on 3.13.2) and, for apps, Flutter
+- A Rust toolchain (`rustup`, stable, 1.85 or newer); `hook/build.dart` builds the engine with cargo
 
-## Setup
+`await ensureInitialized()` loads the native library once; every facade method also calls it, so
+calling it yourself is only needed to surface load errors early. Key objects hold native handles:
+call `dispose()` on `SigningKeyPair`, `EncryptionKeyPair`, `SymmetricKey` and `KeyDuo` when done.
 
-The native library is built by `hook/build.dart` (see "3.0 native build" below).
-Call `await ensureInitialized()` once, or let any facade method do it for you.
+Until `rust_jwk_duo` is pushed and `rust/Cargo.toml` pins it by git rev, `rust/Cargo.toml` uses a path
+dependency on the sibling checkout `../rust_jwk_duo`, so a consumer fetching this package from git
+cannot build it. Use a checkout with both repositories side by side.
 
-## License
+## Migrating from 2.x
 
-MIT License
+Everything not listed as removed keeps its 2.x name. "Rust" names are in the
+[rust_jwk_duo README](../rust_jwk_duo/README.md#parity-table-dart_jwk_duo-200-to-rust_jwk_duo).
 
-## 3.0 native build (flutter_rust_bridge over rust_jwk_duo)
+| 2.x | 3.0 | Rust |
+|---|---|---|
+| `JwkAlgorithm.ecdhEs256` (`ECDH-ES+A256KW`) | removed: replaced by `JwkAlgorithm.hpke7` (`HPKE-7`) | `jwk_algorithm::HPKE7` |
+| `CryptoSizes.hkdfSaltLength`, `hybridHeaderLength` | removed: the old recipe had a salt and IV header; HPKE has neither | none |
+| `DefaultKeyIds`, `KeyIdFormatting` | removed: no callers | none |
+| `IKeyPair<T>` (generic), `.privateKey`, `.publicKey` | `IKeyPair` (not generic, + `dispose()`); the WebCrypto getters are removed: no WebCrypto | `KeyPair` trait |
+| `IKeyDuo` | unchanged | `KeyDuo` (no trait) |
+| `SigningKeyPair(...)`, `.publicOnly(...)`, `EncryptionKeyPair(...)`, `.publicOnly(...)` | removed: constructors took WebCrypto keys. Use `GenerationService`, `KeyDuoSerializer`, `importPublicKeySec1Hex` or `importPublicKeyRaw` | `generate`, `import_public_key_*` |
+| `SigningKeyPair.importPublicKeySec1Hex/Raw`, `signBytes`, `verifyBytes`, `export*`, `calculateKeyId` | unchanged | `import_public_key_*`, `sign_bytes`, `verify_bytes`, `KeyPair` trait |
+| `EncryptionKeyPair.importPublicKeySec1Hex/Raw`, `export*` | unchanged | same |
+| `KeyDuo(signing:, encryption:)` | no longer `const`; throws `ArgumentError` if both halves share a public key | `KeyDuo::new` |
+| `KeyDuo.encrypt/decrypt/encryptString/decryptString` | unchanged, plus named `info`, `aad` | `encrypt(data, info, aad)` ... |
+| `KeyDuo.sign/verifySignature/signString/verifySignatureString`, `exportPublicKeyDuo` | unchanged | `sign`, `verify_signature`, ... |
+| `SymmetricKey.fromJwk/toJwk` | unchanged; 256-bit keys only; + `dispose()` | `SymmetricKey::from_jwk/to_jwk` |
+| `SymmetricKey.fromAesKey`, `.internal` | removed: WebCrypto types | none |
+| `ExportedJwk(...)` constructor | removed: build one by exporting a key; `toJson`, `toPublicOnly`, `keyId`, `alg`, `use` stay | `ExportedJwk` |
+| `CryptoService.encrypt/decrypt/encryptString/decryptString` | unchanged, plus named `info`, `aad` | `CryptoService::encrypt/decrypt/...` |
+| `CryptoService.encryptSymmetric/decryptSymmetric` | unchanged, plus named `aad` | `encrypt_symmetric/decrypt_symmetric` |
+| `CryptoService.sign/verifySignature/signString/verifySignatureString` | unchanged | same |
+| `GenerationService.*` | unchanged | `GenerationService::*` |
+| `ValidationService.*` | unchanged names; every method except `extractPublicKeyFields` is now a `Future` (await it) | `ValidationService::*` |
+| `VerificationService.*` | unchanged | `VerificationService::*` |
+| `KeyDuoSerializer.export*/import*/extract*` | unchanged; 2.x JWK Sets are rejected | `KeyDuoSerializer::*` |
+| `KeyDuoSerializer.verifyJwk` | removed: duplicate of `VerificationService.verifyKeyDuoJwk` | removed |
+| `calculateJwkThumbprint`, `HexCodec`, `Sec1PublicKey`, `*PublicKeyHex`, `PublicKeyDuo` | unchanged | same names in snake_case |
 
-The crypto lives in `rust/` (bridge crate over `../rust_jwk_duo`); `hook/build.dart` builds it with cargo
-for macOS, Linux, iOS and Android. Toolchain setup:
+## Native build and toolchain setup
+
+The crypto lives in `rust/` (bridge crate over `../rust_jwk_duo`); `hook/build.dart` builds it with
+cargo for macOS, Linux, iOS and Android. Toolchain setup:
 
 ```bash
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
@@ -254,45 +289,53 @@ code that does not compile). `rust/Cargo.lock` pins `libc` to 0.2.180: 0.2.190 b
 `backtrace` crate on iOS targets.
 
 Tests: `dart test` runs the whole suite, including `test/conformance_test.dart`, which reads the shared
-vectors from the sibling repo (`JWK_DUO_CONFORMANCE_DIR`, default `../rust_jwk_duo/conformance`).
+vectors from the sibling repo (`JWK_DUO_CONFORMANCE_DIR`, default `../rust_jwk_duo/conformance`). Some of
+those vectors are frozen Rust outputs rather than independent known-answer tests; see
+`../rust_jwk_duo/conformance/README.md`.
 
-Linux: not yet verified on Linux. Docker was unavailable when this was written, so the command below has
-never been run. It mounts the parent directory (both repos as siblings under `/src`), so the container
-writes `rust/target` into the mounted repo (gitignored). Run it from the `dart_jwk_duo` directory:
+### Linux
+
+**Not verified.** Docker was unavailable when this was written, so the command below has never been run.
+It mounts the parent directory (both repos as siblings under `/src`), so the container writes `rust/target`
+into the mounted repo (gitignored). Run it from the `dart_jwk_duo` directory:
 
 ```bash
 docker run --rm -v "$PWD/..:/src" -w /src/dart_jwk_duo dart:3.11 bash -c 'apt-get update && apt-get install -y curl build-essential && curl -sSf https://sh.rustup.rs | sh -s -- -y && . $HOME/.cargo/env && dart pub get && dart test'
 ```
 
-`dart test test/bridge_smoke_test.dart` on Dart 3.11 needs no extra flag for build hooks
-(native assets are enabled by default); the loader finds the hook's output under `rust/target/native-assets/`
-or override with `DART_JWK_DUO_NATIVE_LIB`.
-
 ### Platform loading
 
-`ensureInitialized()` (`lib/src/init.dart`) calls `JwkDuoRust.init()` with no argument on mobile.
+`ensureInitialized()` (`lib/src/init.dart`) picks the library as follows: the `DART_JWK_DUO_NATIVE_LIB`
+environment variable if set (a path to the library); on macOS and Linux, the hook's output under
+`rust/target/native-assets/` or `.dart_tool/`; on iOS and Android, `JwkDuoRust.init()` with no argument
+(flutter_rust_bridge's default loading).
 
-- **iOS: verified (simulator only).** A throwaway Flutter app depending on this package by path called
+- **macOS: tested** (`dart test`).
+- **iOS: verified on the simulator only.** A throwaway Flutter app depending on this package by path called
   `ensureInitialized()`, `generateKeyDuo()` and `formatVersion()` from `main()`. Built with
   `flutter build ios --simulator` (Flutter 3.47.2, Xcode 26.3; needs the rustup targets
   `aarch64-apple-ios-sim` and `x86_64-apple-ios`, since Flutter builds both simulator archs), installed
-  with `xcrun simctl install` on the iPhone 17 Pro simulator, launched with `xcrun simctl launch`. Log
-  output: `flutter: SPIKE OK formatVersion=1 parts=RDuoParts`. The library was bundled as
-  `Runner.app/Frameworks/dart_jwk_duo_bridge.framework/dart_jwk_duo_bridge` and the no-argument
-  `init()` found it. No change to the hook or to `ensureInitialized()` was needed. Not tested on a
-  physical device or on the `aarch64-apple-ios` (iPhoneOS) target.
+  with `xcrun simctl install` and launched with `xcrun simctl launch` on the iPhone 17 Pro simulator. The library
+  was bundled as `Runner.app/Frameworks/dart_jwk_duo_bridge.framework/dart_jwk_duo_bridge` and the no-argument
+  `init()` found it. Not tested on a physical device or on the `aarch64-apple-ios` (iPhoneOS) target.
 - **Android: UNVERIFIED, not run.** The dev machine has no Android toolchain (no adb, emulator,
-  cargo-ndk or NDK). The Android branch of `hook/build.dart` exists per Task 18 but has never executed,
-  and whether `JwkDuoRust.init()` finds `libdart_jwk_duo_bridge.so` is unknown.
+  cargo-ndk or NDK). The Android branch of `hook/build.dart` has never executed, and whether
+  `JwkDuoRust.init()` finds `libdart_jwk_duo_bridge.so` is unknown.
+- **Linux: UNVERIFIED, not run** (see above).
 
-**Conformance on mobile (`example/conformance_app`).** A Flutter app whose `integration_test` runs the
-same 11 vector files as `test/conformance_test.dart` through `runConformance`, loading them from the
-asset bundle, and asserts the same per-file and total counts (a truncated asset set fails).
-Run `example/conformance_app/tool/copy_conformance.sh` first: it copies the vectors from
-`../rust_jwk_duo/conformance` (or `JWK_DUO_CONFORMANCE_DIR`) into the gitignored
+### Conformance on mobile (`example/conformance_app`)
+
+A Flutter app whose `integration_test` runs the same 11 vector files as `test/conformance_test.dart`
+through `runConformance`, loading them from the asset bundle, and asserts the same per-file and total
+counts (a truncated asset set fails). Run `example/conformance_app/tool/copy_conformance.sh` first: it copies
+the vectors from `../rust_jwk_duo/conformance` (or `JWK_DUO_CONFORMANCE_DIR`) into the gitignored
 `assets/conformance/` and exits non-zero if the source is missing or too few files were copied. Then
 `cd example/conformance_app && flutter test integration_test -d <device id>`.
 
-- **iOS simulator: PASS** (2026-10-12, Flutter 3.47.2, Xcode 26.3, iPhone 17 Pro simulator):
-  384 cases run and passed, 8 skipped (`exported_jwk.check`, Rust-only), zero failures.
+- **iOS simulator: passed** (iPhone 17 Pro, Flutter 3.47.2, Xcode 26.3): 384 cases ran and passed, 8 were
+  skipped (`exported_jwk.check`, Rust-only), zero failures.
 - **Android emulator: NOT RUN** (no Android toolchain on the dev machine).
+
+## License
+
+MIT License

@@ -7,14 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [3.0.0] - Unreleased
 
-Rewritten over `rust_jwk_duo` via flutter_rust_bridge; `package:webcrypto` is gone.
-Platforms: macOS, Linux, iOS, Android (no web, no Windows).
+The engine is now Rust: every cryptographic operation runs in `rust_jwk_duo` through
+flutter_rust_bridge, and `package:webcrypto` is gone. Platforms: macOS, Linux, iOS, Android
+(no web, no Windows).
+
+Platform status: macOS tested; iOS tested on the simulator only (including the conformance
+suite); Android UNVERIFIED (never built or run); Linux UNVERIFIED (the Docker command in the
+README has not been run). `rust/Cargo.toml` still depends on `rust_jwk_duo` by path, so
+a consumer who fetches this package from git cannot build it until `rust_jwk_duo` is
+pushed and the dependency is pinned by git rev.
 
 ### Changed - BREAKING
 
 - Encryption is HPKE (RFC 9180, DHKEM P-256 / HKDF-SHA256 / AES-256-GCM, base
-  mode). Encryption JWKs carry `alg: "HPKE-7"` (was `ECDH-ES+A256KW`); 2.x JWK
-  Sets and 2.x ciphertexts are not readable.
+  mode), replacing the 2.x recipe. Ciphertexts from 2.x are unreadable. The output is HPKE
+  but not JWE: it is a library-specific blob, not a JOSE serialization.
+- Encryption JWKs carry `alg: "HPKE-7"` (was `ECDH-ES+A256KW`). 2.x JWK Sets are rejected.
 - `encrypt`/`decrypt`/`encryptString`/`decryptString` (on `CryptoService` and
   `KeyDuo`) take optional named `info` and `aad`; the symmetric functions take `aad`.
 - `IKeyPair` is no longer generic and has `dispose()`; `SymmetricKey`,
@@ -25,18 +33,38 @@ Platforms: macOS, Linux, iOS, Android (no web, no Windows).
 - `ValidationService` methods (synchronous in 2.x) are `Future`s, because the
   native library loads asynchronously. Callers must `await` them: an un-awaited
   call silently drops the failure.
+- Symmetric keys are 256-bit only; 128-bit keys are rejected.
+- The Rust base64 decoder for ciphertext strings (`CryptoService::decrypt_string`) is strict. The Dart
+  `decryptString` still decodes with `dart:convert` before calling the engine, as in 2.x.
+- Errors raised by the engine map to `FormatException`, `StateError` and `ArgumentError` as in 2.x.
 
 ### Removed
 
-- Public constructors, `.publicOnly`, `privateKey` and `publicKey` of the key pairs;
-  `ExportedJwk`'s public constructor; `SymmetricKey.fromAesKey` and `.internal`;
-  `KeyDuoSerializer.verifyJwk` (use `VerificationService.verifyKeyDuoJwk`);
-  `KeyIdFormatting`; `DefaultKeyIds`; `CryptoSizes.hkdfSaltLength` and
-  `hybridHeaderLength`.
+- Public constructors, `.publicOnly`, `privateKey` and `publicKey` of the key pairs (WebCrypto
+  types are gone); `ExportedJwk`'s public constructor; `SymmetricKey.fromAesKey` and `.internal`
+  (WebCrypto types); `KeyDuoSerializer.verifyJwk` (duplicate: use
+  `VerificationService.verifyKeyDuoJwk`); `KeyIdFormatting` and `DefaultKeyIds` (no callers);
+  `CryptoSizes.hkdfSaltLength` and `hybridHeaderLength` (the old recipe had a salt and IV
+  header; HPKE has neither).
 
 ### Added
 
-- `ensureInitialized()`, `HpkeConstants`, `JwkAlgorithm.hpke7`.
+- `ensureInitialized()` (loads the native library; every facade method also calls it), `dispose()` on
+  key objects, `HpkeConstants`, `JwkAlgorithm.hpke7`.
+- `package:dart_jwk_duo/testing.dart` (`runConformance`) and the shared conformance vectors, read from the
+  sibling `rust_jwk_duo` repo (`test/conformance_test.dart`, `example/conformance_app`).
+
+### Fixed (2.x defects, fixed in the Rust engine)
+
+1. `kid` is checked against the key's RFC 7638 thumbprint, not just for presence.
+2. A key duo with the same key in both halves is rejected.
+3. Base64 in JWK members is strict (padding and the standard alphabet are rejected).
+4. Non-string JWK members give `FormatException`, not a raw `TypeError`.
+5. 128-bit symmetric keys are rejected.
+6. A private `d` that does not match `x`/`y` is rejected.
+7. `ExportedJwk` validation gives `FormatException`, not `TypeError`.
+8. `validateNoPrivateKeyMaterial` rejects a non-list `keys` or a non-object key instead of passing.
+9. The public-key extractors report malformed JSON as `FormatException`.
 
 ## [2.0.0] - 2026-08-01
 
