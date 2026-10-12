@@ -242,3 +242,23 @@ flutter pub run webcrypto:setup
 ## License
 
 MIT License
+
+## 3.0 native build (flutter_rust_bridge over rust_jwk_duo)
+
+The crypto lives in `rust/` (bridge crate over `../rust_jwk_duo`); `hook/build.dart` builds it with cargo
+for macOS, Linux, iOS and Android. Toolchain setup:
+
+```bash
+rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk        # Android only; also set ANDROID_NDK_HOME
+cargo install flutter_rust_bridge_codegen --version 2.11.1 --locked
+```
+
+Regenerate the bridge with `flutter_rust_bridge_codegen generate` (`lib/src/bridge/` is generated;
+`analysis_options.yaml` excludes it, which must stay in place or codegen's formatter rewrites it into
+code that does not compile). `rust/Cargo.lock` pins `libc` to 0.2.180: 0.2.190 breaks the
+`backtrace` crate on iOS targets.
+
+Tests: `dart test test/bridge_smoke_test.dart` on Dart 3.11 needs no extra flag for build hooks
+(native assets are enabled by default); the loader finds the hook's output under `rust/target/native-assets/`
+or override with `DART_JWK_DUO_NATIVE_LIB`.

@@ -1,0 +1,19 @@
+[package]
+name = "dart_jwk_duo_bridge"
+version = "3.0.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "staticlib", "rlib"]
+
+[dependencies]
+# Path during development. Task 23 switches it to
+# git = "https://github.com/qtpi-bonding-org/rust_jwk_duo", rev = "<pushed rev>".
+rust_jwk_duo = { path = "../../rust_jwk_duo" }
+flutter_rust_bridge = "=2.11.1"
+serde_json = "1"
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(frb_expand)'] }
+
+[workspace]
