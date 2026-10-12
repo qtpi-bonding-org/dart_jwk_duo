@@ -49,6 +49,7 @@ verify_host() {
   need dart "Dart SDK" || return 1
   need cargo "rustup toolchain" || return 1
   cd "$root"
+  step "dart pub get" "$logdir/host-pub-get.log" dart pub get || return 1
   step "dart analyze" "$logdir/host-analyze.log" dart analyze || return 1
   step "dart test" "$logdir/host.log" dart test || return 1
   passline "$logdir/host.log"
