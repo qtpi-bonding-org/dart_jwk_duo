@@ -237,10 +237,8 @@ final decrypted = await CryptoService.decryptSymmetric(encrypted, symmetricKey, 
 calling it yourself is only needed to surface load errors early. Key objects hold native handles:
 call `dispose()` on `SigningKeyPair`, `EncryptionKeyPair`, `SymmetricKey` and `KeyDuo` when done.
 
-Until `rust_jwk_duo` is pushed and `rust/Cargo.toml` pins it by git rev, `rust/Cargo.toml` uses a path
-dependency on the sibling checkout `../rust_jwk_duo`, so a consumer fetching this package from git
-cannot build it. Use a checkout with both repositories side by side. At the git-rev switch, also drop the
-`../rust_jwk_duo/` entry that `hook/build.dart` tracks for rebuilds.
+`rust/Cargo.toml` pins `rust_jwk_duo` by git rev; cargo fetches it, so consumers need no sibling checkout
+(only network access on the first build). Only the conformance tests need a sibling checkout (see Tests below).
 
 ## Migrating from 2.x
 
@@ -275,7 +273,7 @@ Everything not listed as removed keeps its 2.x name. "Rust" names are in the
 
 ## Native build and toolchain setup
 
-The crypto lives in `rust/` (bridge crate over `../rust_jwk_duo`); `hook/build.dart` builds it with
+The crypto lives in `rust/` (bridge crate over `rust_jwk_duo`, pinned by git rev); `hook/build.dart` builds it with
 cargo for macOS, Linux, iOS and Android. Toolchain setup:
 
 ```bash
@@ -290,7 +288,7 @@ code that does not compile). `rust/Cargo.lock` pins `libc` to 0.2.180: 0.2.190 b
 `backtrace` crate on iOS targets.
 
 Tests: `dart test` runs the whole suite, including `test/conformance_test.dart`, which reads the shared
-vectors from the sibling repo (`JWK_DUO_CONFORMANCE_DIR`, default `../rust_jwk_duo/conformance`). Some of
+vectors from a sibling `rust_jwk_duo` checkout (`JWK_DUO_CONFORMANCE_DIR`, default `../rust_jwk_duo/conformance`); consumers of the package do not need it. Some of
 those vectors are frozen Rust outputs rather than independent known-answer tests; see
 `../rust_jwk_duo/conformance/README.md`.
 

@@ -121,7 +121,7 @@ verify_android() {
   passline "$logdir/android.log"
 }
 
-# Runs the dart:3.11 linux/amd64 suite against a throwaway copy of both repos.
+# Runs the dart:3.11 linux/amd64 suite against a throwaway copy of both repos (the sibling supplies the conformance vectors).
 # Mounting the real checkout leaves Linux hook output in .dart_tool and
 # rust/target, which then breaks the macOS `dart test` ("Running build hooks failed").
 verify_linux() {

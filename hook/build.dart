@@ -101,7 +101,7 @@ String _libraryFileName(OS os) =>
         : 'lib$_libraryStem.so';
 
 void _trackRustSources(BuildInput input, BuildOutputBuilder output) {
-  for (final String rel in <String>['rust/', '../rust_jwk_duo/']) {
+  for (final String rel in <String>['rust/']) {
     final Directory dir = Directory.fromUri(input.packageRoot.resolve(rel));
     if (!dir.existsSync()) continue;
     for (final FileSystemEntity f in dir.listSync(recursive: true, followLinks: false)) {

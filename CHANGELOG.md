@@ -14,9 +14,8 @@ flutter_rust_bridge, and `package:webcrypto` is gone. Platforms: macOS, Linux, i
 Platform status: macOS tested; iOS tested on the simulator only (including the conformance
 suite); Android tested on an x86_64 emulator (Pixel_8 AVD, API 34) only, including the conformance
 suite; Linux tested in Docker (`dart:3.11`, linux/amd64) only. No physical Android device, no
-arm64 Android ABIs and no linux/arm64 were run. `rust/Cargo.toml` still depends on `rust_jwk_duo` by path, so
-a consumer who fetches this package from git cannot build it until `rust_jwk_duo` is
-pushed and the dependency is pinned by git rev.
+arm64 Android ABIs and no linux/arm64 were run. `rust/Cargo.toml` pins `rust_jwk_duo` by git rev, so
+consumers need no sibling checkout; only the conformance tests read vectors from one.
 
 ### Changed - BREAKING
 

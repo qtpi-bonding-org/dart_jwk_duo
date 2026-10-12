@@ -1004,6 +1004,7 @@ dependencies = [
 [[package]]
 name = "rust_jwk_duo"
 version = "0.1.0"
+source = "git+https://github.com/qtpi-bonding-org/rust_jwk_duo?rev=e62f1374adc7a624d9e80d2191403c0176e70aaa#e62f1374adc7a624d9e80d2191403c0176e70aaa"
 dependencies = [
  "aes-gcm",
  "base64ct",
