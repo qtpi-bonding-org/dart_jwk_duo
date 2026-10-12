@@ -262,3 +262,20 @@ code that does not compile). `rust/Cargo.lock` pins `libc` to 0.2.180: 0.2.190 b
 Tests: `dart test test/bridge_smoke_test.dart` on Dart 3.11 needs no extra flag for build hooks
 (native assets are enabled by default); the loader finds the hook's output under `rust/target/native-assets/`
 or override with `DART_JWK_DUO_NATIVE_LIB`.
+
+### Platform loading
+
+`ensureInitialized()` (`lib/src/init.dart`) calls `JwkDuoRust.init()` with no argument on mobile.
+
+- **iOS: verified (simulator only).** A throwaway Flutter app depending on this package by path called
+  `ensureInitialized()`, `generateKeyDuo()` and `formatVersion()` from `main()`. Built with
+  `flutter build ios --simulator` (Flutter 3.47.2, Xcode 26.3; needs the rustup targets
+  `aarch64-apple-ios-sim` and `x86_64-apple-ios`, since Flutter builds both simulator archs), installed
+  with `xcrun simctl install` on the iPhone 17 Pro simulator, launched with `xcrun simctl launch`. Log
+  output: `flutter: SPIKE OK formatVersion=1 parts=RDuoParts`. The library was bundled as
+  `Runner.app/Frameworks/dart_jwk_duo_bridge.framework/dart_jwk_duo_bridge` and the no-argument
+  `init()` found it. No change to the hook or to `ensureInitialized()` was needed. Not tested on a
+  physical device or on the `aarch64-apple-ios` (iPhoneOS) target.
+- **Android: UNVERIFIED, not run.** The dev machine has no Android toolchain (no adb, emulator,
+  cargo-ndk or NDK). The Android branch of `hook/build.dart` exists per Task 18 but has never executed,
+  and whether `JwkDuoRust.init()` finds `libdart_jwk_duo_bridge.so` is unknown.
