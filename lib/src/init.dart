@@ -17,7 +17,7 @@ Future<void> ensureInitialized() async {
     final File? lib = _hookOutput();
     await JwkDuoRust.init(externalLibrary: lib == null ? null : ExternalLibrary.open(lib.path));
   } else {
-    await JwkDuoRust.init(); // packaged app: FRB's default loading (verified in Task 19)
+    await JwkDuoRust.init(); // packaged app: FRB's default loading (verified on iOS; Android unverified)
   }
   _initialized = true;
 }

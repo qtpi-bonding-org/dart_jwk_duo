@@ -22,8 +22,9 @@ Platforms: macOS, Linux, iOS, Android (no web, no Windows).
 - Exported JWKs carry `kty, crv, x, y, [d], kid, alg, use` (no `key_ops` or `ext`).
 - `KeyDuo`'s constructor is no longer `const` and throws `ArgumentError` when
   both halves share a public key.
-- `ValidationService` methods and every other former-synchronous entry point are
-  `Future`s, because the native library loads asynchronously.
+- `ValidationService` methods (synchronous in 2.x) are `Future`s, because the
+  native library loads asynchronously. Callers must `await` them: an un-awaited
+  call silently drops the failure.
 
 ### Removed
 

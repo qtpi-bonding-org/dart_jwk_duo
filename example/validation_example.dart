@@ -27,8 +27,8 @@ Future<void> main() async {
 
   // Test public-only key pair verification (should throw StateError)
   print('\n4. Testing public-only key pair verification...');
-  final SigningKeyPair publicOnlySigningPair = SigningKeyPair.publicOnly(
-    publicKey: keyDuo.signing.publicKey,
+  final SigningKeyPair publicOnlySigningPair = await SigningKeyPair.importPublicKeyRaw(
+    await keyDuo.signing.exportPublicKeyRaw(),
   );
   
   try {
@@ -41,6 +41,14 @@ Future<void> main() async {
       print('   Result: ✗ Unexpected error: $e');
     }
   }
+
+  print('\n5. Validating a JWK Set (validators are async: always await them)...');
+  final String jwkSetJson = await const KeyDuoSerializer().exportPublicKeyDuoJwk(keyDuo);
+  await ValidationService.validateKeyDuoJwk(jwkSetJson);
+  print('   Result: ✓ Valid');
+
+  keyDuo.dispose();
+  publicOnlySigningPair.dispose();
 
   print('\n✓ All verification tests completed successfully!');
   print('\nNote: Key pair verification is optional and should only be used');

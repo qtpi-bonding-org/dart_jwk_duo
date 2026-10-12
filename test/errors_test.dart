@@ -33,6 +33,11 @@ void main() {
     expect(() => KeyDuo(signing: duo.signingKeyPair, encryption: e), throwsArgumentError);
   });
 
+  test('a Rust-originated argument error maps to ArgumentError', () async {
+    await expectLater(
+        calculateJwkThumbprint(<String, dynamic>{'crv': 'P-256'}), throwsArgumentError);
+  });
+
   test('PublicKeyDuo with equal halves throws ArgumentError', () {
     final String hex = '04${'ab' * 64}';
     expect(
