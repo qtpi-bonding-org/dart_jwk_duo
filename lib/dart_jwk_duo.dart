@@ -1,10 +1,9 @@
-/// A thin, type-safe wrapper around package:webcrypto for managing
-/// cryptographic key pairs with clean service-based architecture.
+/// Type-safe P-256 key pairs (ES256 signing, HPKE encryption), JWK import and
+/// export, and AES-256-GCM, over the rust_jwk_duo library via flutter_rust_bridge.
 library dart_jwk_duo;
 
 // Constants and configuration
 export 'src/constants.dart';
-export 'src/key_id_formatting.dart';
 
 // Encoding — the single hex and public key encoding used throughout
 export 'src/hex_codec.dart';
@@ -13,7 +12,8 @@ export 'src/public_key_hex.dart';
 
 // Core interfaces and DTOs
 export 'src/interfaces.dart';
-export 'src/exported_jwk.dart';
+export 'src/exported_jwk.dart' show ExportedJwk;
+export 'src/init.dart' show ensureInitialized;
 
 // Key pair implementations
 export 'src/signing_key_pair.dart';

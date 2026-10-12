@@ -1,63 +1,40 @@
 /// Type-safe wrapper for AES-256-GCM symmetric keys.
 library;
 
-import 'dart:convert';
-import 'package:webcrypto/webcrypto.dart';
+import 'bridge/api.dart' as r;
+import 'errors.dart';
+import 'init.dart';
 
-/// Type-safe wrapper for AES-256-GCM symmetric keys
+/// Type-safe wrapper for AES-256-GCM symmetric keys.
+///
+/// Wraps a native handle; the key bytes stay in Rust until [toJwk] is called.
 class SymmetricKey {
-  
-  SymmetricKey._internal(this._key);
-  
-  /// Create SymmetricKey from AesGcmSecretKey (internal use)
-  /// 
-  /// Used by GenerationService and other internal services.
-  factory SymmetricKey.fromAesKey(AesGcmSecretKey aesKey) {
-    return SymmetricKey._internal(aesKey);
-  }
-  final AesGcmSecretKey _key;
-  
-  /// Import from JWK string (uses WebCrypto import)
-  /// 
-  /// Imports a symmetric key from JWK format. No validation is performed -
-  /// use ValidationService.validateSymmetricKeyJwk() if validation is needed.
-  /// 
-  /// [jwk] - JSON string containing symmetric key JWK
-  /// 
-  /// Returns imported [SymmetricKey].
+  SymmetricKey._(this._r);
+  final r.RSymmetricKey _r;
+
+  /// Import from JWK string.
+  ///
+  /// Use `ValidationService.validateSymmetricKeyJwkString()` first if
+  /// separate validation is needed.
+  ///
   /// Throws [FormatException] if import fails.
   static Future<SymmetricKey> fromJwk(String jwk) async {
-    try {
-      final Map<String, dynamic> jwkMap = jsonDecode(jwk) as Map<String, dynamic>;
-      
-      // Use WebCrypto's native import (no validation - caller decides when to validate)
-      final AesGcmSecretKey aesKey = await AesGcmSecretKey.importJsonWebKey(jwkMap);
-      
-      return SymmetricKey.fromAesKey(aesKey);
-    } catch (e) {
-      throw FormatException('Failed to import symmetric key: $e');
-    }
+    await ensureInitialized();
+    return SymmetricKey._(rethrowAsDart(() => r.symmetricFromJwk(json: jwk)));
   }
-  
-  /// Export as JWK string (uses WebCrypto export)
-  /// 
-  /// Exports the symmetric key as JWK format JSON string.
-  /// 
-  /// Returns JWK JSON string.
-  /// Throws [StateError] if export fails.
+
+  /// Export as JWK format JSON string.
   Future<String> toJwk() async {
-    try {
-      // Use WebCrypto's native export (just like KeyDuo does)
-      final Map<String, dynamic> jwkMap = await _key.exportJsonWebKey();
-      return jsonEncode(jwkMap);
-    } catch (e) {
-      throw StateError('Failed to export symmetric key: $e');
-    }
+    await ensureInitialized();
+    return rethrowAsDart(() => r.symmetricToJwk(k: _r));
   }
-  
-  /// The underlying webcrypto key.
-  ///
-  /// Internal access for CryptoService and VerificationService; prefer the
-  /// CryptoService helpers over reaching through this.
-  AesGcmSecretKey get internal => _key;
+
+  /// Releases the native key handle. The key must not be used afterwards.
+  void dispose() => _r.dispose();
+
+  /// The native handle, for the facade's own services.
+  r.RSymmetricKey get handle => _r;
 }
+
+/// Wraps a native symmetric handle. Internal: not exported from the barrel.
+SymmetricKey symmetricKeyFromHandle(r.RSymmetricKey h) => SymmetricKey._(h);

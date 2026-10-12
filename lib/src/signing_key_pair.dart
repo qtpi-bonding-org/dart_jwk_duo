@@ -2,152 +2,97 @@
 library;
 
 import 'dart:typed_data';
-import 'package:webcrypto/webcrypto.dart';
-import 'interfaces.dart';
+import 'bridge/api.dart' as r;
+import 'errors.dart';
 import 'exported_jwk.dart';
-import 'constants.dart';
-import 'jwk_thumbprint.dart';
+import 'init.dart';
+import 'interfaces.dart';
 import 'public_key_hex.dart';
 import 'sec1_public_key.dart';
 
-/// Type-safe wrapper for ECDSA P-256 signing key pairs.
-/// 
-/// Provides compile-time safety by restricting operations to signing keys only.
-/// Uses ES256 algorithm (ECDSA with P-256 curve and SHA-256).
-class SigningKeyPair implements IKeyPair<EcdsaPrivateKey, EcdsaPublicKey> {
-  
-  /// Creates a new SigningKeyPair wrapper with both private and public keys.
-  SigningKeyPair({
-    required EcdsaPrivateKey privateKey,
-    required EcdsaPublicKey publicKey,
-  }) : _privateKey = privateKey,
-       _publicKey = publicKey;
-
-  /// Creates a new public-only SigningKeyPair wrapper.
-  SigningKeyPair.publicOnly({
-    required EcdsaPublicKey publicKey,
-  }) : _privateKey = null,
-       _publicKey = publicKey;
-  final EcdsaPrivateKey? _privateKey;
-  final EcdsaPublicKey _publicKey;
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Static Import Methods
-  // ═══════════════════════════════════════════════════════════════════════════
+/// Type-safe wrapper for ECDSA P-256 signing key pairs (ES256).
+///
+/// Wraps a native handle; the private scalar never enters Dart.
+class SigningKeyPair implements IKeyPair {
+  SigningKeyPair._(this._r, this._publicRaw);
+  final r.RSigningKeyPair _r;
+  final Uint8List _publicRaw; // cached for synchronous distinctness checks
 
   /// Import a public-only SigningKeyPair from SEC1 uncompressed hex.
   ///
   /// Takes a [SigningPublicKeyHex] rather than a bare `String` so that an
   /// encryption key cannot be imported here by accident — the two are
   /// byte-indistinguishable, so the type is the only thing that can tell them
-  /// apart. Wrap a value read from storage explicitly:
-  /// `SigningPublicKeyHex(hexFromDatabase)`.
-  ///
-  /// This is the inverse of [exportPublicKeySec1Hex].
-  ///
-  /// Use case: verify signatures when all you have is the public key hex.
+  /// apart.
   ///
   /// Throws [FormatException] if the bytes do not describe a point on P-256.
-  static Future<SigningKeyPair> importPublicKeySec1Hex(
-      SigningPublicKeyHex sec1Hex) async {
-    return importPublicKeyRaw(Sec1PublicKey.decodeHex(sec1Hex.value));
-  }
+  static Future<SigningKeyPair> importPublicKeySec1Hex(SigningPublicKeyHex sec1Hex) =>
+      importPublicKeyRaw(Sec1PublicKey.decodeHex(sec1Hex.value));
 
   /// Import a public-only SigningKeyPair from SEC1 uncompressed bytes.
-  ///
-  /// [raw] must be exactly 65 bytes: the `04` tag followed by the 32-byte x
-  /// and 32-byte y coordinates. This is the inverse of [exportPublicKeyRaw].
   ///
   /// Throws [FormatException] if the length or tag is wrong, or if the bytes
   /// do not describe a point on P-256.
   static Future<SigningKeyPair> importPublicKeyRaw(Uint8List raw) async {
-    final EcdsaPublicKey publicKey = await EcdsaPublicKey.importRawKey(
-      Sec1PublicKey.validateRaw(raw), EllipticCurve.p256);
-
-    return SigningKeyPair.publicOnly(publicKey: publicKey);
+    await ensureInitialized();
+    return signingKeyPairFromHandle(
+        rethrowAsDart(() => r.signingImportPublicRaw(raw: Sec1PublicKey.validateRaw(raw))));
   }
 
-  @override
-  EcdsaPrivateKey? get privateKey => _privateKey;
+  /// The SEC1 public key bytes, cached at creation.
+  Uint8List get cachedPublicRaw => _publicRaw;
 
   @override
-  EcdsaPublicKey get publicKey => _publicKey;
+  bool get hasPrivateKey => r.signingHasPrivateKey(kp: _r);
 
-  @override
-  bool get hasPrivateKey => _privateKey != null;
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // Signing Operations (concrete class methods, not in interface)
-  // ═══════════════════════════════════════════════════════════════════════════
-
-  /// Sign bytes with the private key.
+  /// Sign bytes with the private key. Returns a 64-byte P1363 `r || s`.
+  ///
+  /// Throws [StateError] on a public-only key pair.
   Future<Uint8List> signBytes(Uint8List data) async {
-    if (_privateKey == null) {
-      throw StateError('Cannot sign: public-only key pair');
-    }
-    return await _privateKey.signBytes(data, Hash.sha256);
+    await ensureInitialized();
+    return Uint8List.fromList(rethrowAsDart(() => r.signBytes(kp: _r, data: data)));
   }
 
-  /// Verify a signature against the original data.
+  /// Verify a signature against the original data. Returns `false` for a
+  /// malformed signature.
   Future<bool> verifyBytes(Uint8List signature, Uint8List data) async {
-    return await _publicKey.verifyBytes(signature, data, Hash.sha256);
+    await ensureInitialized();
+    return rethrowAsDart(() => r.verifyBytes(kp: _r, signature: signature, data: data));
   }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // IKeyPair Implementation
-  // ═══════════════════════════════════════════════════════════════════════════
 
   @override
-  Future<Uint8List> exportPublicKeyRaw() async {
-    return Sec1PublicKey.validateRaw(await _publicKey.exportRawKey());
-  }
+  Future<Uint8List> exportPublicKeyRaw() async => Uint8List.fromList(_publicRaw);
 
   /// Export the public key as SEC1 uncompressed hex, typed as a signing key.
-  ///
-  /// Narrows [IKeyPair.exportPublicKeySec1Hex] from `String` to
-  /// [SigningPublicKeyHex]. Same 130 characters either way — the difference is
-  /// that the result cannot be assigned to a variable or parameter expecting
-  /// an encryption key.
   @override
-  Future<SigningPublicKeyHex> exportPublicKeySec1Hex() async {
-    return SigningPublicKeyHex(
-      Sec1PublicKey.encodeHex(await exportPublicKeyRaw()));
-  }
+  Future<SigningPublicKeyHex> exportPublicKeySec1Hex() async =>
+      SigningPublicKeyHex(Sec1PublicKey.encodeHex(_publicRaw));
 
   @override
   Future<ExportedJwk> exportPrivateKey() async {
-    if (_privateKey == null) {
-      throw StateError('Cannot export private key: public-only key pair');
-    }
-    
-    final Map<String, dynamic> jwkMap = await _privateKey.exportJsonWebKey();
-    final String keyId = await calculateKeyId();
-    
-    return ExportedJwk(
-      keyData: jwkMap,
-      keyId: keyId,
-      alg: JwkAlgorithm.es256,
-      use: JwkUse.signature,
-    );
+    await ensureInitialized();
+    return exportedJwkFromJson(rethrowAsDart(() => r.signingExportPrivateJwk(kp: _r)));
   }
 
   @override
   Future<ExportedJwk> exportPublicKey() async {
-    final Map<String, dynamic> jwkMap = await _publicKey.exportJsonWebKey();
-    final String keyId = await calculateKeyId();
-    
-    return ExportedJwk(
-      keyData: jwkMap,
-      keyId: keyId,
-      alg: JwkAlgorithm.es256,
-      use: JwkUse.signature,
-    );
+    await ensureInitialized();
+    return exportedJwkFromJson(rethrowAsDart(() => r.signingExportPublicJwk(kp: _r)));
   }
 
   @override
   Future<String> calculateKeyId() async {
-    final Map<String, dynamic> jwk = await _publicKey.exportJsonWebKey();
-    return calculateJwkThumbprint(jwk);
+    await ensureInitialized();
+    return rethrowAsDart(() => r.signingKeyId(kp: _r));
   }
 
+  @override
+  void dispose() => _r.dispose();
+
+  /// The native handle, for the facade's own services.
+  r.RSigningKeyPair get handle => _r;
 }
+
+/// Wraps a native signing handle. Internal: not exported from the barrel.
+SigningKeyPair signingKeyPairFromHandle(r.RSigningKeyPair h) =>
+    SigningKeyPair._(h, Uint8List.fromList(r.signingPublicRaw(kp: h)));

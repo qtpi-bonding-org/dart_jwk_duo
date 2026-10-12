@@ -1,41 +1,36 @@
 /// Data Transfer Object for type-safe JWK export with guaranteed metadata.
 library;
 
+import 'dart:convert';
 import 'constants.dart';
 
 /// A fully typed export object that guarantees metadata is attached to the key
 /// before it becomes JSON.
-/// 
-/// This DTO ensures that kid, alg, and use are always present and validated
-/// before serialization, preventing invalid states at compile time.
+///
+/// Instances come from the key pairs' export methods; there is no public
+/// constructor.
 class ExportedJwk {
-  
-  /// Creates a new ExportedJwk with validation.
-  /// 
-  /// Validates that the algorithm and use are consistent with the key type.
-  /// Throws [ArgumentError] if validation fails.
-  ExportedJwk({
+  ExportedJwk._({
     required Map<String, dynamic> keyData,
     required this.keyId,
     required this.alg,
     required this.use,
-  }) : _keyData = Map<String, dynamic>.unmodifiable(keyData) {
-    _validate();
-  }
+  }) : _keyData = Map<String, dynamic>.unmodifiable(keyData);
+
   /// The underlying JWK data as a Map
   final Map<String, dynamic> _keyData;
-  
+
   /// Key identifier (kid) - RFC 7638 JWK thumbprint used for key lookup
   final String keyId;
-  
-  /// Algorithm (alg) - must match the key type and intended use
+
+  /// Algorithm (alg): `ES256` for signing keys, `HPKE-7` for encryption keys
   final String alg;
-  
+
   /// Public key use (use) - either 'sig' for signing or 'enc' for encryption
   final String use;
-  
+
   /// Converts the ExportedJwk to a JSON Map.
-  /// 
+  ///
   /// Merges the raw key data with the metadata (kid, alg, use).
   Map<String, dynamic> toJson() {
     final Map<String, dynamic> result = Map<String, dynamic>.from(_keyData);
@@ -44,70 +39,57 @@ class ExportedJwk {
     result['use'] = use;
     return result;
   }
-  
+
   /// Creates a public-only version of this ExportedJwk.
-  /// 
-  /// For EC keys: copies kty, crv, x, y
-  /// For all keys: copies kid, alg, use and other public metadata
+  ///
+  /// Copies kty, crv, x, y, kid, alg and use.
   ExportedJwk toPublicOnly() {
-    final String? kty = _keyData['kty'] as String?;
-    
-    final Map<String, dynamic> publicKeyData;
-    
-    if (kty == JwkKeyType.ec) {
-      // EC key - copy curve and coordinates
-      publicKeyData = <String, dynamic>{
-        'kty': _keyData['kty'],
-        'crv': _keyData['crv'],
-        'x': _keyData['x'],
-        'y': _keyData['y'],
-      };
-    } else {
+    if (_keyData['kty'] != JwkKeyType.ec) {
       throw const FormatException('Unknown key type');
     }
-    
+
+    final Map<String, dynamic> publicKeyData = <String, dynamic>{
+      'kty': _keyData['kty'],
+      'crv': _keyData['crv'],
+      'x': _keyData['x'],
+      'y': _keyData['y'],
+    };
+
     if (publicKeyData.containsValue(null)) {
       throw const FormatException('Cannot create public key: missing required components');
     }
-    
-    return ExportedJwk(
+
+    return ExportedJwk._(
       keyData: publicKeyData,
       keyId: keyId,
       alg: alg,
       use: use,
     );
   }
-  
-  void _validate() {
-    final String? kty = _keyData['kty'] as String?;
-    
-    // Validate ES256 (ECDSA P-256) for signing
-    if (alg == JwkAlgorithm.es256) {
-      if (use != JwkUse.signature) {
-        throw ArgumentError('ES256 algorithm must be used with "sig" use');
-      }
-      if (kty != JwkKeyType.ec) {
-        throw ArgumentError('ES256 algorithm requires EC key type');
-      }
-    }
-    
-    // Validate ECDH-ES+A256KW for encryption
-    if (alg == JwkAlgorithm.ecdhEs256) {
-      if (use != JwkUse.encryption) {
-        throw ArgumentError('ECDH-ES+A256KW algorithm must be used with "enc" use');
-      }
-      if (kty != JwkKeyType.ec) {
-        throw ArgumentError('ECDH-ES+A256KW algorithm requires EC key type');
-      }
-    }
-    
-    // Validate use matches algorithm
-    if (use == JwkUse.signature && alg != JwkAlgorithm.es256) {
-      throw ArgumentError('Signature use must be used with ES256 algorithm');
-    }
-    
-    if (use == JwkUse.encryption && alg != JwkAlgorithm.ecdhEs256) {
-      throw ArgumentError('Encryption use must be used with ECDH-ES+A256KW algorithm');
-    }
+}
+
+/// Builds an [ExportedJwk] from the JWK JSON the native library emits.
+///
+/// Internal: the barrel exports only the `ExportedJwk` type.
+ExportedJwk exportedJwkFromJson(String json) {
+  final Object? decoded;
+  try {
+    decoded = jsonDecode(json);
+  } on FormatException {
+    throw const FormatException('Invalid JSON format');
   }
+  if (decoded is! Map<String, dynamic>) {
+    throw const FormatException('JWK must be a JSON object');
+  }
+  final Object? kid = decoded['kid'];
+  final Object? alg = decoded['alg'];
+  final Object? use = decoded['use'];
+  if (kid is! String || alg is! String || use is! String) {
+    throw const FormatException('JWK must carry string "kid", "alg" and "use"');
+  }
+  final Map<String, dynamic> keyData = Map<String, dynamic>.from(decoded)
+    ..remove('kid')
+    ..remove('alg')
+    ..remove('use');
+  return ExportedJwk._(keyData: keyData, keyId: kid, alg: alg, use: use);
 }

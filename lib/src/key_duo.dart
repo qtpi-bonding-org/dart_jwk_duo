@@ -3,7 +3,6 @@ library;
 
 import 'dart:convert';
 import 'dart:typed_data';
-import 'package:webcrypto/webcrypto.dart';
 import 'constants.dart';
 import 'interfaces.dart';
 import 'signing_key_pair.dart';
@@ -22,19 +21,28 @@ class KeyDuo implements IKeyDuo {
   /// 
   /// [signing] - The signing key pair (ECDSA P-256)
   /// [encryption] - The encryption key pair (ECDH P-256)
-  const KeyDuo({
+  ///
+  /// Throws [ArgumentError] if both halves have the same public key.
+  KeyDuo({
     required SigningKeyPair signing,
     required EncryptionKeyPair encryption,
   }) : _signing = signing,
-       _encryption = encryption;
+       _encryption = encryption {
+    if (_sameBytes(_signing.cachedPublicRaw, _encryption.cachedPublicRaw)) {
+      throw ArgumentError(
+        'Signing and encryption public keys are identical. One key has been '
+        'placed in both fields; they must come from different key pairs.',
+      );
+    }
+  }
   final SigningKeyPair _signing;
   final EncryptionKeyPair _encryption;
 
   @override
-  IKeyPair<EcdsaPrivateKey?, EcdsaPublicKey> get signing => _signing;
+  IKeyPair get signing => _signing;
 
   @override
-  IKeyPair<EcdhPrivateKey?, EcdhPublicKey> get encryption => _encryption;
+  IKeyPair get encryption => _encryption;
   
   /// Access the concrete SigningKeyPair for signing operations.
   SigningKeyPair get signingKeyPair => _signing;
@@ -61,10 +69,12 @@ class KeyDuo implements IKeyDuo {
   /// [EncryptionKeyPair] directly — a whole KeyDuo is not required.
   ///
   /// [data] - The data to encrypt
+  /// [info] - Optional HPKE context info; decryption must pass the same value
+  /// [aad] - Optional associated data; decryption must pass the same value
   ///
   /// Returns encrypted bytes.
-  Future<Uint8List> encrypt(Uint8List data) async {
-    return await CryptoService.encrypt(data, _encryption);
+  Future<Uint8List> encrypt(Uint8List data, {Uint8List? info, Uint8List? aad}) async {
+    return await CryptoService.encrypt(data, _encryption, info: info, aad: aad);
   }
 
   /// Decrypt data with this KeyDuo's encryption key
@@ -75,8 +85,8 @@ class KeyDuo implements IKeyDuo {
   ///
   /// Returns decrypted bytes.
   /// Throws [StateError] if KeyDuo has no private key.
-  Future<Uint8List> decrypt(Uint8List data) async {
-    return await CryptoService.decrypt(data, _encryption);
+  Future<Uint8List> decrypt(Uint8List data, {Uint8List? info, Uint8List? aad}) async {
+    return await CryptoService.decrypt(data, _encryption, info: info, aad: aad);
   }
 
   /// Sign data with this KeyDuo's signing key
@@ -109,9 +119,9 @@ class KeyDuo implements IKeyDuo {
   /// [data] - The string to encrypt
   /// 
   /// Returns base64-encoded encrypted data.
-  Future<String> encryptString(String data) async {
+  Future<String> encryptString(String data, {Uint8List? info, Uint8List? aad}) async {
     final Uint8List dataBytes = utf8.encode(data);
-    final Uint8List encryptedBytes = await encrypt(dataBytes);
+    final Uint8List encryptedBytes = await encrypt(dataBytes, info: info, aad: aad);
     return base64.encode(encryptedBytes);
   }
   
@@ -122,9 +132,9 @@ class KeyDuo implements IKeyDuo {
   /// [base64Data] - Base64-encoded encrypted data
   /// 
   /// Returns decrypted string.
-  Future<String> decryptString(String base64Data) async {
+  Future<String> decryptString(String base64Data, {Uint8List? info, Uint8List? aad}) async {
     final Uint8List encryptedBytes = base64.decode(base64Data);
-    final Uint8List decryptedBytes = await decrypt(encryptedBytes);
+    final Uint8List decryptedBytes = await decrypt(encryptedBytes, info: info, aad: aad);
     return utf8.decode(decryptedBytes);
   }
   
@@ -156,4 +166,18 @@ class KeyDuo implements IKeyDuo {
     final Uint8List dataBytes = utf8.encode(data);
     return await verifySignature(dataBytes, signatureBytes);
   }
+
+  /// Releases the native handles of both key pairs.
+  void dispose() {
+    _signing.dispose();
+    _encryption.dispose();
+  }
+}
+
+bool _sameBytes(Uint8List a, Uint8List b) {
+  if (a.length != b.length) return false;
+  for (int i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }

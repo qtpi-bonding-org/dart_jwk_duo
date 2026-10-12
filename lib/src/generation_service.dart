@@ -1,59 +1,31 @@
 /// Service for generating new cryptographic keys.
 library;
 
-import 'package:webcrypto/webcrypto.dart';
+import 'bridge/api.dart' as r;
+import 'encryption_key_pair.dart';
+import 'errors.dart';
+import 'init.dart';
 import 'key_duo.dart';
 import 'signing_key_pair.dart';
-import 'encryption_key_pair.dart';
 import 'symmetric_key.dart';
 
-/// Service for generating new cryptographic keys
-/// 
-/// Provides static methods for creating new KeyDuo and SymmetricKey instances
-/// with proper cryptographic parameters.
+/// Service for generating new cryptographic keys.
 class GenerationService {
-  /// Generate new KeyDuo (ECDSA P-256 + ECDH P-256)
-  /// 
-  /// Creates a new KeyDuo containing both signing and encryption key pairs:
-  /// - Signing: ECDSA P-256 for digital signatures and identity
-  /// - Encryption: ECDH P-256 for key agreement and hybrid encryption
-  /// 
-  /// Returns a new [KeyDuo] with both private and public keys.
+  /// Generate new KeyDuo (ECDSA P-256 signing + HPKE P-256 encryption).
   static Future<KeyDuo> generateKeyDuo() async {
-    // Generate ECDSA P-256 key pair for signing
-    final ({EcdsaPrivateKey privateKey, EcdsaPublicKey publicKey}) signingKeyPair =
-        await EcdsaPrivateKey.generateKey(EllipticCurve.p256);
-
-    // Generate ECDH P-256 key pair for encryption
-    final ({EcdhPrivateKey privateKey, EcdhPublicKey publicKey}) encryptionKeyPair =
-        await EcdhPrivateKey.generateKey(EllipticCurve.p256);
-
-
-    // Create typed wrappers
-    final SigningKeyPair signing = SigningKeyPair(
-      privateKey: signingKeyPair.privateKey,
-      publicKey: signingKeyPair.publicKey,
-    );
-    
-    final EncryptionKeyPair encryption = EncryptionKeyPair(
-      privateKey: encryptionKeyPair.privateKey,
-      publicKey: encryptionKeyPair.publicKey,
-    );
-    
-    return KeyDuo(
-      signing: signing,
-      encryption: encryption,
-    );
+    await ensureInitialized();
+    return keyDuoFromParts(rethrowAsDart(r.generateKeyDuo));
   }
-  
-  /// Generate new symmetric key (AES-256-GCM)
-  /// 
-  /// Creates a new SymmetricKey for data encryption using AES-256-GCM.
-  /// This is used for encrypting actual user data in the E2EE system.
-  /// 
-  /// Returns a new [SymmetricKey] ready for encryption operations.
+
+  /// Generate new symmetric key (AES-256-GCM).
   static Future<SymmetricKey> generateSymmetricKey() async {
-    final AesGcmSecretKey aesKey = await AesGcmSecretKey.generateKey(256);
-    return SymmetricKey.fromAesKey(aesKey);
+    await ensureInitialized();
+    return symmetricKeyFromHandle(rethrowAsDart(r.symmetricGenerate));
   }
 }
+
+/// Wraps a bridge key duo. Internal: not exported from the barrel.
+KeyDuo keyDuoFromParts(r.RDuoParts parts) => KeyDuo(
+      signing: signingKeyPairFromHandle(parts.signing),
+      encryption: encryptionKeyPairFromHandle(parts.encryption),
+    );

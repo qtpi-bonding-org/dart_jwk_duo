@@ -16,8 +16,8 @@ class JwkAlgorithm {
   /// ECDSA using P-256 and SHA-256
   static const String es256 = 'ES256';
   
-  /// ECDH Ephemeral Static key agreement using Concat KDF and CEK wrapped with "A256KW"
-  static const String ecdhEs256 = 'ECDH-ES+A256KW';
+  /// HPKE (RFC 9180) with DHKEM(P-256, HKDF-SHA256), HKDF-SHA256 and AES-256-GCM
+  static const String hpke7 = 'HPKE-7';
 }
 
 /// JWK use (public key use) constants
@@ -39,15 +39,15 @@ class JwkCurve {
   static const String p256 = 'P-256';
 }
 
-/// Default key identifiers
-class DefaultKeyIds {
-  const DefaultKeyIds._();
+/// HPKE framing constants shared with rust_jwk_duo.
+class HpkeConstants {
+  const HpkeConstants._();
 
-  /// Default signing key identifier
-  static const String signing = 'master-signing';
+  /// Version byte that prefixes every HPKE blob.
+  static const int versionV1 = 1;
 
-  /// Default encryption key identifier
-  static const String encryption = 'master-encryption';
+  /// Domain-separation prefix prepended to the caller's `info`.
+  static const String infoPrefix = 'rust_jwk_duo/hpke/v1\x00';
 }
 
 /// Cryptographic size constants (bytes unless noted)
@@ -59,12 +59,9 @@ class CryptoSizes {
 
   /// AES-GCM authentication tag length (16 bytes / 128 bits)
   ///
-  /// Appended to the ciphertext by `webcrypto`, so an AES-GCM ciphertext is
-  /// always exactly this much longer than its plaintext.
+  /// Appended to the ciphertext, so an AES-GCM ciphertext is always exactly
+  /// this much longer than its plaintext.
   static const int aesGcmTagLength = 16;
-
-  /// HKDF salt length (32 bytes / 256 bits, matches SHA-256 output per RFC 5869)
-  static const int hkdfSaltLength = 32;
 
   /// SEC1 uncompressed point tag, the leading byte of `04 || x || y`.
   ///
@@ -75,8 +72,7 @@ class CryptoSizes {
   /// EC P-256 SEC1 uncompressed public key length in bytes.
   ///
   /// 1 tag byte + 32-byte x + 32-byte y. This is the only public key byte
-  /// encoding this library emits or accepts, and it is what WebCrypto calls
-  /// the `"raw"` format.
+  /// encoding this library emits or accepts.
   static const int ecP256Sec1PublicKeyLength = 65;
 
   /// EC P-256 SEC1 uncompressed public key length in hex characters (130).
@@ -85,20 +81,4 @@ class CryptoSizes {
 
   /// ECDSA P-256 signature length
   static const int ecdsaP256SignatureLength = 64;
-
-  /// Fixed header length of a hybrid-encrypted blob.
-  ///
-  /// The layout is entirely fixed-size:
-  ///
-  /// ```
-  /// | ephemeral SEC1 public key | HKDF salt | AES-GCM IV | ciphertext + tag |
-  /// |         65 bytes          | 32 bytes  |  12 bytes  |     variable     |
-  /// ```
-  ///
-  /// There are no length prefixes and nothing is JSON-encoded, so parsing is
-  /// a handful of constant offsets and there is no attacker-controlled length
-  /// to bound.
-  static const int hybridHeaderLength =
-      ecP256Sec1PublicKeyLength + hkdfSaltLength + aesGcmIvLength;
 }
-

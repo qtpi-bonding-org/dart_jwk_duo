@@ -1,19 +1,18 @@
 # Dart JWK Duo
 
-A thin, type-safe wrapper around `package:webcrypto` for managing cryptographic key pairs with clean service-based architecture.
+Type-safe P-256 key pairs (ES256 signing, HPKE encryption) and AES-256-GCM keys with a service-based API. All cryptography runs in [rust_jwk_duo](../rust_jwk_duo) through flutter_rust_bridge; secret key material stays in native handles. Platforms: macOS, Linux, iOS, Android.
 
 ## Key Types
 
 1. **SigningKeyPair** (ECDSA P-256 / ES256) - for identity, authentication, and digital signatures
-2. **EncryptionKeyPair** (ECDH P-256) - for key agreement and hybrid encryption
+2. **EncryptionKeyPair** (P-256, JWK `alg` `HPKE-7`) - for HPKE (RFC 9180) encryption
 3. **SymmetricKey** (AES-256-GCM) - for data encryption
 
 ## Features
 
 - **Type Safety**: Separate types for signing vs encryption keys prevent compile-time errors
 - **RFC 7517 Compliant**: Standard JWK/JWKS format support
-- **Web Compatible**: Uses ECDH P-256 for encryption (works in browsers)
-- **Minimal Abstraction**: Ultra-thin wrapper over webcrypto
+- **Native Crypto**: No cryptography in Dart; every call forwards to rust_jwk_duo
 - **Dynamic Key IDs**: Uses RFC 7638 JWK thumbprints for collision-free key rotation
 - **Service Architecture**: Clean separation between generation, validation, verification, and crypto operations
 
@@ -27,8 +26,8 @@ A thin, type-safe wrapper around `package:webcrypto` for managing cryptographic 
 │  ├── SigningKeyPair (ECDSA P-256)                              │
 │  │   ├── signBytes(data) → signature                           │
 │  │   └── verifyBytes(signature, data) → bool                   │
-│  └── EncryptionKeyPair (ECDH P-256)                            │
-│      └── ECDH key agreement + AES-GCM hybrid encryption        │
+│  └── EncryptionKeyPair (P-256 HPKE)                            │
+│      └── HPKE (DHKEM P-256, HKDF-SHA256, AES-256-GCM)          │
 │                                                                 │
 │  Both pair types share one encoding surface (IKeyPair):        │
 │      exportPublicKeySec1Hex()  → 130-char hex, 04||x||y        │
@@ -57,8 +56,7 @@ A thin, type-safe wrapper around `package:webcrypto` for managing cryptographic 
 This library speaks exactly **one** public key encoding, for both key types:
 **SEC1 uncompressed**, `04 || x || y` — 65 bytes, 130 hex characters.
 
-That is SEC1 §2.3.3, and identically ANSI X9.62, RFC 5480, TLS, OpenSSL and
-WebCrypto's `"raw"` format. There is no second, tag-stripped "convenience"
+That is SEC1 §2.3.3, and identically ANSI X9.62, RFC 5480, TLS and OpenSSL. There is no second, tag-stripped "convenience"
 form, because having two encodings for the same value is how a key ends up
 stored in the wrong field.
 
@@ -98,8 +96,8 @@ final key = SigningPublicKeyHex(row['signing_public_key_hex'] as String);
 ```
 
 That call validates the encoding — 130 characters, `04` tag. It cannot check
-that the point is on the curve, because that needs an async `webcrypto`
-import; `importPublicKeySec1Hex` does that. So holding a `SigningPublicKeyHex`
+that the point is on the curve, because that needs the native
+library; `importPublicKeySec1Hex` does that. So holding a `SigningPublicKeyHex`
 means *well-formed and declared to be a signing key*, not *verified to be a
 valid point*.
 
@@ -194,7 +192,7 @@ final plaintext =
 
 ```dart
 // Structural validation (format checks only)
-ValidationService.validateKeyDuoJwk(jwkSetJson);
+await ValidationService.validateKeyDuoJwk(jwkSetJson);
 
 // Cryptographic verification (roundtrip tests)
 final isValid = await VerificationService.verifyKeyDuo(keyDuo);
@@ -210,14 +208,14 @@ final verifiedKeyDuo = await VerificationService.verifyKeyDuoJwk(jwkSetJson);
 final symmetricKey = await GenerationService.generateSymmetricKey();
 
 // Export as JWK
-final jwk = await symmetricKey.exportJwk();
+final jwk = await symmetricKey.toJwk();
 
 // Import from JWK
-final imported = await SymmetricKey.importJwk(jwkMap);
+final imported = await SymmetricKey.fromJwk(jwk);
 
-// Encrypt/decrypt (use with CryptoService or directly)
-final encrypted = await symmetricKey.internal.encryptBytes(data, iv);
-final decrypted = await symmetricKey.internal.decryptBytes(encrypted, iv);
+// Encrypt/decrypt, optionally binding associated data
+final encrypted = await CryptoService.encryptSymmetric(data, symmetricKey, aad: aad);
+final decrypted = await CryptoService.decryptSymmetric(encrypted, symmetricKey, aad: aad);
 ```
 
 ## Security Notes
@@ -232,12 +230,8 @@ final decrypted = await symmetricKey.internal.decryptBytes(encrypted, iv);
 
 ## Setup
 
-This package depends on `package:webcrypto` which requires native library setup:
-
-```bash
-flutter pub get
-flutter pub run webcrypto:setup
-```
+The native library is built by `hook/build.dart` (see "3.0 native build" below).
+Call `await ensureInitialized()` once, or let any facade method do it for you.
 
 ## License
 

@@ -5,6 +5,38 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0] - Unreleased
+
+Rewritten over `rust_jwk_duo` via flutter_rust_bridge; `package:webcrypto` is gone.
+Platforms: macOS, Linux, iOS, Android (no web, no Windows).
+
+### Changed - BREAKING
+
+- Encryption is HPKE (RFC 9180, DHKEM P-256 / HKDF-SHA256 / AES-256-GCM, base
+  mode). Encryption JWKs carry `alg: "HPKE-7"` (was `ECDH-ES+A256KW`); 2.x JWK
+  Sets and 2.x ciphertexts are not readable.
+- `encrypt`/`decrypt`/`encryptString`/`decryptString` (on `CryptoService` and
+  `KeyDuo`) take optional named `info` and `aad`; the symmetric functions take `aad`.
+- `IKeyPair` is no longer generic and has `dispose()`; `SymmetricKey`,
+  `SigningKeyPair`, `EncryptionKeyPair` and `KeyDuo` gain `dispose()`.
+- Exported JWKs carry `kty, crv, x, y, [d], kid, alg, use` (no `key_ops` or `ext`).
+- `KeyDuo`'s constructor is no longer `const` and throws `ArgumentError` when
+  both halves share a public key.
+- `ValidationService` methods and every other former-synchronous entry point are
+  `Future`s, because the native library loads asynchronously.
+
+### Removed
+
+- Public constructors, `.publicOnly`, `privateKey` and `publicKey` of the key pairs;
+  `ExportedJwk`'s public constructor; `SymmetricKey.fromAesKey` and `.internal`;
+  `KeyDuoSerializer.verifyJwk` (use `VerificationService.verifyKeyDuoJwk`);
+  `KeyIdFormatting`; `DefaultKeyIds`; `CryptoSizes.hkdfSaltLength` and
+  `hybridHeaderLength`.
+
+### Added
+
+- `ensureInitialized()`, `HpkeConstants`, `JwkAlgorithm.hpke7`.
+
 ## [2.0.0] - 2026-08-01
 
 Breaking release. The library now speaks exactly one public key encoding,
