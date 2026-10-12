@@ -35,6 +35,17 @@ const Map<String, (int, int)> _runSkipped = <String, (int, int)>{
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
+  testWidgets('every bundled conformance file is wired into the runner', (tester) async {
+    final AssetManifest manifest = await AssetManifest.loadFromAssetBundle(rootBundle);
+    final List<String> bundled = manifest
+        .listAssets()
+        .where((String a) => a.startsWith('assets/conformance/') && a.endsWith('.json'))
+        .map((String a) => a.substring('assets/conformance/'.length))
+        .toList()
+      ..sort();
+    expect(bundled, equals(<String>[..._files]..sort()));
+  });
+
   testWidgets('all conformance cases conform on this platform', (tester) async {
     final ConformanceReport report = await runConformance(
       load: (String p) => rootBundle.loadString('assets/conformance/$p'),
