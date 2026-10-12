@@ -1,6 +1,6 @@
 # Dart JWK Duo
 
-Type-safe P-256 key pairs (ES256 signing, HPKE encryption) and AES-256-GCM keys with a service-based API. All cryptography runs in [rust_jwk_duo](../rust_jwk_duo) through flutter_rust_bridge; secret key material stays in native handles. Platforms: macOS, Linux, iOS, Android (Linux and Android unverified).
+Type-safe P-256 key pairs (ES256 signing, HPKE encryption) and AES-256-GCM keys with a service-based API. All cryptography runs in [rust_jwk_duo](../rust_jwk_duo) through flutter_rust_bridge; secret key material stays in native handles. Platforms: macOS, Linux, iOS, Android.
 
 ## Key Types
 
@@ -296,8 +296,9 @@ those vectors are frozen Rust outputs rather than independent known-answer tests
 
 ### Linux
 
-**Not verified.** Docker was unavailable when this was written, so the command below has never been run.
-It mounts the parent directory (both repos as siblings under `/src`), so the container writes `rust/target`
+**Verified 2026-10-12** in Docker (`dart:3.11`, linux/amd64, run from an x86_64 macOS host): the command below exited 0 and
+`dart test` reported 96 tests passed, including the conformance suite (the runner asserts the 384-run / 8-skipped counts).
+Not run on linux/arm64 or on a non-Docker Linux host. It mounts the parent directory (both repos as siblings under `/src`), so the container writes `rust/target`
 into the mounted repo (gitignored). Run it from the `dart_jwk_duo` directory:
 
 ```bash
@@ -319,10 +320,11 @@ environment variable if set (a path to the library); on macOS and Linux, the hoo
   with `xcrun simctl install` and launched with `xcrun simctl launch` on the iPhone 17 Pro simulator. The library
   was bundled as `Runner.app/Frameworks/dart_jwk_duo_bridge.framework/dart_jwk_duo_bridge` and the no-argument
   `init()` found it. Not tested on a physical device or on the `aarch64-apple-ios` (iPhoneOS) target.
-- **Android: UNVERIFIED, not run.** The dev machine has no Android toolchain (no adb, emulator,
-  cargo-ndk or NDK). The Android branch of `hook/build.dart` has never executed, and whether
-  `JwkDuoRust.init()` finds `libdart_jwk_duo_bridge.so` is unknown.
-- **Linux: UNVERIFIED, not run** (see above).
+- **Android emulator: verified 2026-10-12** (Pixel_8 AVD, x86_64, API 34; NDK 28.2.13676358, cargo-ndk, rustup targets
+  `x86_64-linux-android`, `aarch64-linux-android`, `armv7-linux-androideabi`). The conformance app's `integration_test`
+  ran the hook's Android branch and `JwkDuoRust.init()` found `libdart_jwk_duo_bridge.so`. Only the x86_64 ABI was built
+  and run; arm64-v8a and armeabi-v7a were not built or run, and no physical device was tested.
+- **Linux: verified in Docker** (see "Linux" above).
 
 ### Conformance on mobile (`example/conformance_app`)
 
@@ -335,7 +337,7 @@ the vectors from `../rust_jwk_duo/conformance` (or `JWK_DUO_CONFORMANCE_DIR`) in
 
 - **iOS simulator: passed, re-verified 2026-10-12 after the HPKE string bridge functions were added** (iPhone 17 Pro, Flutter 3.47.2, Xcode 26.3): 384 cases ran and passed, 8 were
   skipped (`exported_jwk.check`, Rust-only), zero failures.
-- **Android emulator: NOT RUN** (no Android toolchain on the dev machine).
+- **Android emulator: passed 2026-10-12** (Pixel_8 AVD, x86_64, API 34, Flutter integration_test, `flutter test integration_test -d emulator-5554`): all tests passed, including the 384-case conformance run (8 skipped, as on iOS). x86_64 only; no physical device, no arm64.
 
 ## License
 
