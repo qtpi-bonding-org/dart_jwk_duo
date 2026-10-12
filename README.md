@@ -294,16 +294,28 @@ vectors from the sibling repo (`JWK_DUO_CONFORMANCE_DIR`, default `../rust_jwk_d
 those vectors are frozen Rust outputs rather than independent known-answer tests; see
 `../rust_jwk_duo/conformance/README.md`.
 
-### Linux
+### Verifying platforms
 
-**Verified 2026-10-12** in Docker (`dart:3.11`, linux/amd64, run from an x86_64 macOS host): the command below exited 0 and
-`dart test` reported 96 tests passed, including the conformance suite (the runner asserts the 384-run / 8-skipped counts).
-Not run on linux/arm64 or on a non-Docker Linux host. It mounts the parent directory (both repos as siblings under `/src`), so the container writes `rust/target`
-into the mounted repo (gitignored). Run it from the `dart_jwk_duo` directory:
+`tool/verify.sh host|ios|android|linux|all` re-runs the platform checks below from a clean state and exits
+non-zero if any fails (`all` runs each platform and reports every result). Logs go to `.verify-logs/`
+(override with `VERIFY_LOG_DIR`). It is a local script, not CI.
 
-```bash
-docker run --rm -v "$PWD/..:/src" -w /src/dart_jwk_duo dart:3.11 bash -c 'apt-get update && apt-get install -y curl build-essential && curl -sSf https://sh.rustup.rs | sh -s -- -y && . $HOME/.cargo/env && dart pub get && dart test'
-```
+- `host`: `dart analyze && dart test`.
+- `ios`: boots a headless simulator (`IOS_SIM_ID`, else the first available iPhone), runs the conformance app's
+  `integration_test`, shuts the simulator down. Needs Xcode, Flutter and the rustup targets
+  `aarch64-apple-ios-sim`, `x86_64-apple-ios`, `aarch64-apple-ios` (the script adds them).
+- `android`: boots a headless emulator (`ANDROID_AVD`, else the first AVD), runs the same test, kills the emulator.
+  Needs the Android SDK (`ANDROID_HOME`, default `~/Library/Android/sdk`), an NDK (`ANDROID_NDK_HOME`, else the
+  newest under `$ANDROID_HOME/ndk`), an AVD, and `cargo install cargo-ndk`.
+- `linux`: needs Docker and rsync. Copies both repos to a temp directory and runs, on `dart:3.11` (linux/amd64),
+  `apt-get install build-essential`, rustup, `dart pub get`, `dart test`. The copy matters: mounting the real
+  checkout leaves Linux hook output in `.dart_tool` and `rust/target`, which breaks the next macOS `dart test`.
+
+A missing prerequisite fails the platform with a message; nothing is skipped silently.
+
+**Verified 2026-10-12** with `tool/verify.sh all`: host `dart test` 96 passed; the conformance run asserts 384 cases
+run and 8 skipped. Linux (Docker, `dart:3.11`, linux/amd64, run from an x86_64 macOS host): 96 passed.
+Not run: linux/arm64 or a non-Docker Linux host, Android arm64-v8a and armeabi-v7a, any physical device.
 
 ### Platform loading
 
@@ -324,16 +336,16 @@ environment variable if set (a path to the library); on macOS and Linux, the hoo
   `x86_64-linux-android`, `aarch64-linux-android`, `armv7-linux-androideabi`). The conformance app's `integration_test`
   ran the hook's Android branch and `JwkDuoRust.init()` found `libdart_jwk_duo_bridge.so`. Only the x86_64 ABI was built
   and run; arm64-v8a and armeabi-v7a were not built or run, and no physical device was tested.
-- **Linux: verified in Docker** (see "Linux" above).
+- **Linux: verified in Docker** (see "Verifying platforms" above).
 
 ### Conformance on mobile (`example/conformance_app`)
 
 A Flutter app whose `integration_test` runs the same 11 vector files as `test/conformance_test.dart`
 through `runConformance`, loading them from the asset bundle, and asserts the same per-file and total
-counts (a truncated asset set fails). Run `example/conformance_app/tool/copy_conformance.sh` first: it copies
+counts (a truncated asset set fails). `tool/verify.sh` runs `example/conformance_app/tool/copy_conformance.sh` first: it copies
 the vectors from `../rust_jwk_duo/conformance` (or `JWK_DUO_CONFORMANCE_DIR`) into the gitignored
-`assets/conformance/` and exits non-zero if the source is missing or too few files were copied. Then
-`cd example/conformance_app && flutter test integration_test -d <device id>`.
+`assets/conformance/` and exits non-zero if the source is missing or too few files were copied. Then it runs
+`flutter test integration_test -d <device id>` in `example/conformance_app` (do the same by hand to run on a physical device).
 
 - **iOS simulator: passed, re-verified 2026-10-12 after the HPKE string bridge functions were added** (iPhone 17 Pro, Flutter 3.47.2, Xcode 26.3): 384 cases ran and passed, 8 were
   skipped (`exported_jwk.check`, Rust-only), zero failures.

@@ -28,7 +28,7 @@ Future<void> _load() async {
     final File? lib = _hookOutput();
     await JwkDuoRust.init(externalLibrary: lib == null ? null : ExternalLibrary.open(lib.path));
   } else {
-    await JwkDuoRust.init(); // packaged app: FRB's default loading (verified on iOS; Android unverified)
+    await JwkDuoRust.init(); // packaged app: FRB's default loading (verified on iOS simulator and Android emulator, x86_64)
   }
 }
 
