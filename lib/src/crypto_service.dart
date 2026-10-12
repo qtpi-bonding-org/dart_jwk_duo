@@ -39,8 +39,9 @@ class CryptoService {
 
   /// Decrypts a blob produced by [encrypt].
   ///
-  /// Throws [StateError] if [recipient] is public-only or authentication
-  /// fails, [FormatException] if [data] is malformed.
+  /// Throws [StateError] if [recipient] is public-only, and
+  /// [FormatException] if [data] is malformed or authentication fails (wrong
+  /// key, [info] or [aad], or tampered data).
   static Future<Uint8List> decrypt(
     Uint8List data,
     EncryptionKeyPair recipient, {
@@ -80,6 +81,9 @@ class CryptoService {
   }
 
   /// Decrypts a blob produced by [encryptSymmetric].
+  ///
+  /// Throws [FormatException] if [data] is malformed or authentication fails
+  /// (wrong key or [aad], or tampered data).
   static Future<Uint8List> decryptSymmetric(
       Uint8List data, SymmetricKey symmetricKey, {Uint8List? aad}) async {
     await ensureInitialized();
@@ -104,6 +108,9 @@ class CryptoService {
   }
 
   /// Decrypts base64 produced by [encryptString] back to a string.
+  ///
+  /// Throws as [decrypt] does; also [FormatException] for invalid base64 or
+  /// non-UTF-8 plaintext.
   static Future<String> decryptString(
     String base64Data,
     EncryptionKeyPair recipient, {

@@ -125,7 +125,12 @@ Future<void> _runCaseFile(String file, Map<String, dynamic> doc, _Counter c,
 
   final Set<String> ids = <String>{};
   for (final Object? raw in cases) {
-    final Map<String, dynamic> cs = raw as Map<String, dynamic>;
+    if (raw is! Map<String, dynamic> || raw['id'] is! String) {
+      failures.add('$file: case is not an object with a string "id"');
+      c.run++;
+      continue;
+    }
+    final Map<String, dynamic> cs = raw;
     final String id = cs['id'] as String;
     final String where = '$file/$id';
     if (!ids.add(id)) {
@@ -183,6 +188,16 @@ Future<String?> _runCase(String op, Map<String, dynamic> cs) async {
   return kind == wantKind ? null : 'expected error $wantKind, got $kind ($thrown)';
 }
 
+/// The runner's own failure (malformed fixture, unknown op). Deliberately not
+/// a FormatException/StateError/ArgumentError, so [_kindOf] never maps it and
+/// it can never satisfy an expected error kind.
+class _RunnerError implements Exception {
+  _RunnerError(this.message);
+  final String message;
+  @override
+  String toString() => 'runner error: $message';
+}
+
 String? _kindOf(Object e) {
   if (e is FormatException) return 'format';
   if (e is StateError) return 'state';
@@ -192,11 +207,17 @@ String? _kindOf(Object e) {
 
 String _s(Map<String, dynamic> input, String k) {
   final Object? v = input[k];
-  if (v is! String) throw StateError('conformance input member $k must be a string');
+  if (v is! String) throw _RunnerError('input member $k must be a string');
   return v;
 }
 
-Uint8List _b64(Map<String, dynamic> input, String k) => base64.decode(_s(input, k));
+Uint8List _b64(Map<String, dynamic> input, String k) {
+  try {
+    return base64.decode(_s(input, k));
+  } on FormatException {
+    throw _RunnerError('input member $k is not valid base64');
+  }
+}
 
 /// Fixture hex: lenient on length, like the Rust runner's `hex()` helper.
 Uint8List _fixtureHex(String v) => HexCodec.decode(v, expectedLength: v.length);
@@ -249,7 +270,7 @@ Future<Object?> _dispatch(String op, Map<String, dynamic> input) async {
         key.dispose();
       }
     default:
-      throw StateError('unknown conformance op $op');
+      throw _RunnerError('unknown op $op');
   }
 }
 

@@ -254,11 +254,14 @@ code that does not compile). `rust/Cargo.lock` pins `libc` to 0.2.180: 0.2.190 b
 `backtrace` crate on iOS targets.
 
 Tests: `dart test` runs the whole suite, including `test/conformance_test.dart`, which reads the shared
-vectors from the sibling repo (`JWK_DUO_CONFORMANCE_DIR`, default `../rust_jwk_duo/conformance`). Linux,
-with both repos mounted as siblings under `/src`:
+vectors from the sibling repo (`JWK_DUO_CONFORMANCE_DIR`, default `../rust_jwk_duo/conformance`).
+
+Linux: not yet verified on Linux. Docker was unavailable when this was written, so the command below has
+never been run. It mounts the parent directory (both repos as siblings under `/src`), so the container
+writes `rust/target` into the mounted repo (gitignored). Run it from the `dart_jwk_duo` directory:
 
 ```bash
-docker run --rm -v /Users/aicoder/Documents/my-libs:/src -w /src/dart_jwk_duo dart:3.11 bash -c 'apt-get update && apt-get install -y curl build-essential && curl -sSf https://sh.rustup.rs | sh -s -- -y && . $HOME/.cargo/env && dart pub get && dart test'
+docker run --rm -v "$PWD/..:/src" -w /src/dart_jwk_duo dart:3.11 bash -c 'apt-get update && apt-get install -y curl build-essential && curl -sSf https://sh.rustup.rs | sh -s -- -y && . $HOME/.cargo/env && dart pub get && dart test'
 ```
 
 `dart test test/bridge_smoke_test.dart` on Dart 3.11 needs no extra flag for build hooks
