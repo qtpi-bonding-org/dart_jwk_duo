@@ -54,6 +54,10 @@ consumers need no sibling checkout; only the conformance tests read vectors from
 - `package:dart_jwk_duo/testing.dart` (`runConformance`) and the shared conformance vectors, read from the
   sibling `rust_jwk_duo` repo (`test/conformance_test.dart`, `example/conformance_app`).
 
+### Fixed (found in a packaged Flutter macOS app)
+
+- `ensureInitialized()` threw `Unsupported operation: Isolate.resolvePackageUriSync` on macOS and Linux inside a Flutter app, so the app could not start. The hook-output lookup is now skipped on `UnsupportedError` and loading falls back to FRB's default, as on iOS and Android. Under `flutter test` (`flutter_tester`) the library is still found only through `DART_JWK_DUO_NATIVE_LIB`.
+
 ### Fixed (2.x defects, fixed in the Rust engine)
 
 1. `kid` is checked against the key's RFC 7638 thumbprint, not just for presence.

@@ -25,7 +25,17 @@ Future<void> _load() async {
     await JwkDuoRust.init(externalLibrary: ExternalLibrary.open(override));
   } else if (Platform.isMacOS || Platform.isLinux) {
     // dart test / dart run: use the build hook's output, as episutra does.
-    final File? lib = _hookOutput();
+    // Inside a Flutter app the hook output cannot be located this way (see below).
+    File? lib;
+    try {
+      lib = _hookOutput();
+    } on UnsupportedError {
+      // Isolate.resolvePackageUriSync is unsupported under the Flutter engine
+      // (a packaged macOS app, flutter_tester), where there is no hook output
+      // to find. Fall back to FRB's default loading, which finds the library
+      // the app bundles.
+      lib = null;
+    }
     await JwkDuoRust.init(externalLibrary: lib == null ? null : ExternalLibrary.open(lib.path));
   } else {
     await JwkDuoRust.init(); // packaged app: FRB's default loading (verified on iOS simulator and Android emulator, x86_64)
