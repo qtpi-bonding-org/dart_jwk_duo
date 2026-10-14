@@ -57,6 +57,7 @@ consumers need no sibling checkout; only the conformance tests read vectors from
 ### Fixed (found in a packaged Flutter macOS app)
 
 - `ensureInitialized()` threw `Unsupported operation: Isolate.resolvePackageUriSync` on macOS and Linux inside a Flutter app, so the app could not start. The hook-output lookup is now skipped on `UnsupportedError` and loading falls back to FRB's default, as on iOS and Android. Under `flutter test` (`flutter_tester`) the library is still found only through `DART_JWK_DUO_NATIVE_LIB`.
+- The build hook read `input.config.code` before checking `buildCodeAssets`, so a hook run without a code-assets config (seen after the app was running under `flutter run`) died with `Null check operator used on a null value` and failed the native-assets build. It now returns early when `buildCodeAssets` is false.
 
 ### Fixed (2.x defects, fixed in the Rust engine)
 

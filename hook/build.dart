@@ -8,8 +8,11 @@ const String _assetName = 'src/bridge/frb_generated.dart';
 
 void main(List<String> args) async {
   await build(args, (BuildInput input, BuildOutputBuilder output) async {
+    if (!input.config.buildCodeAssets) {
+      return;
+    }
     final CodeConfig code = input.config.code;
-    if (!input.config.buildCodeAssets || !_isSupported(code.targetOS)) {
+    if (!_isSupported(code.targetOS)) {
       return;
     }
     final Uri crateRoot = input.packageRoot.resolve('rust/');
