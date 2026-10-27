@@ -50,6 +50,7 @@ void main(List<String> args) async {
       'cargo',
       command,
       workingDirectory: crateRoot.toFilePath(),
+      environment: await _sdkEnvironment(code.targetOS),
       mode: ProcessStartMode.inheritStdio,
     );
     if (await build.exitCode != 0) {
@@ -69,6 +70,25 @@ void main(List<String> args) async {
     ));
     _trackRustSources(input, output);
   });
+}
+
+/// Hooks run with a stripped environment and, inside Xcode, a PATH whose `cc`
+/// is the raw toolchain clang rather than the `/usr/bin/cc` shim. That clang has
+/// no default sysroot, so the C build scripts (dart-sys, oslog) cannot find
+/// `assert.h` or `os/log.h`. Name the SDK explicitly when nothing else did.
+Future<Map<String, String>> _sdkEnvironment(OS os) async {
+  if (os != OS.macOS || (Platform.environment['SDKROOT'] ?? '').isNotEmpty) {
+    return const <String, String>{};
+  }
+  final ProcessResult sdk = await Process.run(
+    '/usr/bin/xcrun',
+    <String>['--sdk', 'macosx', '--show-sdk-path'],
+  );
+  final String path = (sdk.stdout as String).trim();
+  if (sdk.exitCode != 0 || path.isEmpty) {
+    return const <String, String>{};
+  }
+  return <String, String>{'SDKROOT': path};
 }
 
 bool _isSupported(OS os) =>
