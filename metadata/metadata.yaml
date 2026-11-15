@@ -12,12 +12,6 @@ public:
   links:
   - type: repo
     url: https://github.com/qtpi-bonding-org/dart_jwk_duo
-private:
-  started: 2025-12
-  visibility: public
-  license: MIT
-  ownership: designed and directed; code written with AI assistance
-  build: agentic
 facts:
 - id: key-types
   assertion: The package provides SigningKeyPair (ECDSA P-256, ES256), EncryptionKeyPair (P-256 HPKE, alg
