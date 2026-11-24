@@ -92,7 +92,8 @@ facts:
   state: partial
   assertion: The hook targets macOS, Linux, iOS and Android. The CHANGELOG records testing on macOS, the
     iOS simulator only, an Android x86_64 emulator only, and Linux in Docker only; there are no physical-device
-    or arm64 Android runs, and no Windows or web support.
+    or arm64 Android runs, and no Windows support. Web is built by bin/build_web.dart, not the hook, and
+    was tested in headless Chrome only.
   evidence:
   - hook/build.dart
   - CHANGELOG.md

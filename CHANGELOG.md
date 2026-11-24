@@ -8,14 +8,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [3.0.0] - Unreleased
 
 The engine is now Rust: every cryptographic operation runs in `rust_jwk_duo` through
-flutter_rust_bridge, and `package:webcrypto` is gone. Platforms: macOS, Linux, iOS, Android
-(no web, no Windows).
+flutter_rust_bridge, and `package:webcrypto` is gone. Platforms: macOS, Linux, iOS, Android,
+web (no Windows).
 
 Platform status: macOS tested; iOS tested on the simulator only (including the conformance
 suite); Android tested on an x86_64 emulator (Pixel_8 AVD, API 34) only, including the conformance
 suite; Linux tested in Docker (`dart:3.11`, linux/amd64) only. No physical Android device, no
 arm64 Android ABIs and no linux/arm64 were run. `rust/Cargo.toml` pins `rust_jwk_duo` by git rev, so
 consumers need no sibling checkout; only the conformance tests read vectors from one.
+
+### Added
+
+- Web support (wasm, stable Rust, no COOP/COEP headers), tested in Chrome. Apps run
+  `dart run dart_jwk_duo:build_web` to get the wasm and JS files; see README "Web".
+- `testing.dart`: `createInteropBundle` and `checkInteropBundle`.
 
 ### Changed - BREAKING
 

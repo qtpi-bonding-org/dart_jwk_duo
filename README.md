@@ -1,6 +1,6 @@
 # Dart JWK Duo
 
-Type-safe P-256 key pairs (ES256 signing, HPKE encryption) and AES-256-GCM keys with a service-based API. All cryptography runs in [rust_jwk_duo](../rust_jwk_duo) through flutter_rust_bridge; secret key material stays in native handles. Platforms: macOS, Linux, iOS, Android.
+Type-safe P-256 key pairs (ES256 signing, HPKE encryption) and AES-256-GCM keys with a service-based API. All cryptography runs in [rust_jwk_duo](../rust_jwk_duo) through flutter_rust_bridge; secret key material stays in native handles (on the web: in wasm memory, see [Web](#web)). Platforms: macOS, Linux, iOS, Android, web (tested in Chrome).
 
 ## Key Types
 
@@ -223,6 +223,39 @@ final encrypted = await CryptoService.encryptSymmetric(data, symmetricKey, aad: 
 final decrypted = await CryptoService.decryptSymmetric(encrypted, symmetricKey, aad: aad);
 ```
 
+## Web
+
+The app needs two files, `pkg/dart_jwk_duo_bridge.js` and `pkg/dart_jwk_duo_bridge_bg.wasm`, next to its
+`index.html`. From the app's root, before `flutter build web` (or `flutter run -d chrome`), locally or in CI,
+with a path or a git dependency:
+
+```bash
+rustup target add wasm32-unknown-unknown
+dart run dart_jwk_duo:build_web --install-wasm-bindgen
+```
+
+It writes to `web/pkg` (`--output` changes that; gitignore it) and builds under the app's `.dart_tool`. The
+wasm-bindgen CLI must equal the version in `rust/Cargo.lock`: the command checks that, and
+`--install-wasm-bindgen` installs the right one under `.dart_tool`. Re-run it whenever the dart_jwk_duo version
+changes. `dart run` also runs the package's build hook, so it builds the host's native library too.
+
+- **Toolchain and headers**: stable Rust. No nightly, SharedArrayBuffer, COOP/COEP headers or web workers: every
+  bridge call is synchronous, so a call blocks the page's main thread while it runs. flutter_rust_bridge's own
+  `build-web` command (nightly, shared memory) is not used.
+- **CSP**: `script-src 'self' 'wasm-unsafe-eval'` is enough for this package; `unsafe-eval` is not needed.
+- **Randomness** is `crypto.getRandomValues` only. If it fails, the operation fails.
+- **Secrets**: keys live in the wasm module's linear memory, not in a native process heap. Any script running in the
+  page (XSS, a compromised dependency, an extension) can read that memory or call the library. The Rust code zeroizes
+  as on native, but the browser makes no promise about copies it or its JIT made, and memory cannot be locked or
+  excluded from crash dumps. Nothing uses non-extractable WebCrypto keys.
+- **A Rust panic** surfaces as `StateError`, as on native, but wasm does not unwind: values live at that moment are
+  not dropped or zeroized. Reload the page after one.
+- **One bridge per page**: flutter_rust_bridge calls through the fixed global `window.wasm_bindgen`, so loading fails
+  with a `StateError` if another such library already owns it. A library loaded afterwards could take it over.
+- dart2js builds (`flutter build web`) only. `flutter build web --wasm` is untested, and Flutter's wasm dry run
+  reports an incompatibility inside flutter_rust_bridge 2.11.1.
+- The built wasm contains panic-location paths from the build machine's cargo home.
+
 ## Security Notes
 
 - **AES-GCM nonce limit**: Symmetric encryption uses random 96-bit IVs. Per NIST guidelines, do not exceed ~2^32 encryptions per key to keep collision probability negligible. Rotate keys before this limit.
@@ -294,7 +327,7 @@ those vectors are frozen Rust outputs rather than independent known-answer tests
 
 ### Verifying platforms
 
-`tool/verify.sh host|ios|android|linux|all` re-runs the platform checks below from a clean state and exits
+`tool/verify.sh host|ios|android|linux|web|all` re-runs the platform checks below from a clean state and exits
 non-zero if any fails (`all` runs each platform and reports every result). Logs go to `.verify-logs/`
 (override with `VERIFY_LOG_DIR`). It is a local script, not CI.
 
@@ -308,6 +341,9 @@ non-zero if any fails (`all` runs each platform and reports every result). Logs 
 - `linux`: needs Docker and rsync. Copies both repos to a temp directory and runs, on `dart:3.11` (linux/amd64),
   `apt-get install build-essential`, rustup, `dart pub get`, `dart test`. The copy matters: mounting the real
   checkout leaves Linux hook output in `.dart_tool` and `rust/target`, which breaks the next macOS `dart test`.
+- `web`: runs `build_web`, makes a release web build of the conformance app and drives it in headless Chrome
+  (`CHROME` overrides the binary, `WASM_BINDGEN` the CLI). Besides the conformance cases it checks interop with the
+  host in both directions, load failure and retry, and that key generation fails without the browser's RNG.
 
 A missing prerequisite fails the platform with a message; nothing is skipped silently.
 
@@ -317,7 +353,7 @@ Not run: linux/arm64 or a non-Docker Linux host, Android arm64-v8a and armeabi-v
 
 ### Platform loading
 
-`ensureInitialized()` (`lib/src/init.dart`) picks the library as follows: the `DART_JWK_DUO_NATIVE_LIB`
+`ensureInitialized()` (`lib/src/init.dart`; loaders in `init_io.dart` and `init_web.dart`) picks the library as follows: the `DART_JWK_DUO_NATIVE_LIB`
 environment variable if set (a path to the library); on macOS and Linux, the hook's output under
 `rust/target/native-assets/` or `.dart_tool/`; on iOS and Android, `JwkDuoRust.init()` with no argument
 (flutter_rust_bridge's default loading).

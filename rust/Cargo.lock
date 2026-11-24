@@ -592,9 +592,11 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "300e883d756b2e4ec94e02791f39b04b522276138852cfc41d9fb7e904106099"
 dependencies = [
  "cfg-if",
+ "js-sys",
  "libc",
  "r-efi",
  "rand_core",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -1004,7 +1006,7 @@ dependencies = [
 [[package]]
 name = "rust_jwk_duo"
 version = "0.1.0"
-source = "git+https://github.com/qtpi-bonding-org/rust_jwk_duo?rev=489985d719539a6d8f841561728eb33cda82601e#489985d719539a6d8f841561728eb33cda82601e"
+source = "git+https://github.com/qtpi-bonding-org/rust_jwk_duo?rev=28521fab1bbc68ec051269ff0ea09b2b3766c4e3#28521fab1bbc68ec051269ff0ea09b2b3766c4e3"
 dependencies = [
  "aes-gcm",
  "base64ct",

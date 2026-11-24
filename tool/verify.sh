@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Local platform verification for dart_jwk_duo. Not CI: run it by hand.
-#   tool/verify.sh host|ios|android|linux|all
+#   tool/verify.sh host|ios|android|linux|web|all
 # Env: IOS_SIM_ID, ANDROID_AVD, ANDROID_HOME, ANDROID_NDK_HOME, VERIFY_LOG_DIR,
-#      ANDROID_EMU_PORT (even, default 5584).
+#      ANDROID_EMU_PORT (even, default 5584), CHROME, WASM_BINDGEN.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -140,10 +140,27 @@ verify_linux() {
   passline "$logdir/linux.log"
 }
 
-usage() { echo "usage: tool/verify.sh host|ios|android|linux|all" >&2; exit 2; }
+# Release web build of the conformance app in headless Chrome, plus interop with
+# this host. Set CHROME for a non-default Chrome, WASM_BINDGEN for a given CLI.
+verify_web() {
+  need flutter "Flutter SDK" || return 1
+  need cargo "rustup toolchain" || return 1
+  copy_vectors >"$logdir/web-vectors.log" 2>&1 || { cat "$logdir/web-vectors.log" >&2; return 1; }
+  cd "$root/example/conformance_app"
+  step "flutter pub get" "$logdir/web-pub-get.log" flutter pub get || return 1
+  step "build_web" "$logdir/web-wasm.log" dart run dart_jwk_duo:build_web --install-wasm-bindgen || return 1
+  step "flutter build web --release" "$logdir/web-build.log" \
+    flutter build web --release --no-web-resources-cdn -t lib/web_conformance.dart || return 1
+  cd "$root"
+  step "headless Chrome" "$logdir/web.log" dart run tool/web_conformance.dart || return 1
+  grep '^build_web: wrote' "$logdir/web-wasm.log"
+  passline "$logdir/web.log"
+}
+
+usage() { echo "usage: tool/verify.sh host|ios|android|linux|web|all" >&2; exit 2; }
 
 [ $# -eq 1 ] || usage
-case "$1" in host|ios|android|linux) platforms=("$1") ;; all) platforms=(host ios android linux) ;; *) usage ;; esac
+case "$1" in host|ios|android|linux|web) platforms=("$1") ;; all) platforms=(host ios android linux web) ;; *) usage ;; esac
 
 failed=()
 for p in "${platforms[@]}"; do

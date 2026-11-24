@@ -3,3 +3,4 @@
 library;
 
 export 'src/testing/conformance_runner.dart' show runConformance, ConformanceReport;
+export 'src/testing/interop.dart' show createInteropBundle, checkInteropBundle;
